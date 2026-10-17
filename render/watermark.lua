@@ -447,54 +447,6 @@ _G.createWatermarkCard = function(parent)
             watermarkInstance:UpdateMissWareColor(color)
         end
     end)
-
-    toggle.MouseButton1Click:Connect(function()
-        watermarkEnabled = not watermarkEnabled
-        toggle.Text = watermarkEnabled and "ON" or "OFF"
-        toggle.BackgroundColor3 = watermarkEnabled and Color3.fromRGB(0,180,0) or Color3.fromRGB(70,70,80)
-
-        if watermarkEnabled then
-            watermarkInstance = Watermark.new()
-            watermarkInstance:SetPosition(currentPosition)
-            local combined = watermarkInstance:AddCombinedBlock({
-                { text = "FPS: 0", color = Color3.fromRGB(100, 255, 150) },
-                { text = "Ping: 0", color = Color3.fromRGB(255, 200, 100) },
-                { text = "MissWare", color = watermarkColor, isMissWare = true },
-            })
-            watermarkInstance:SetVisible(true)
-
-            local frameCount, lastTime = 0, tick()
-            local currentFPS, currentPing = 0, 0
-            local lastFPS, lastPing = -1, -1
-            local pingTimer = 0
-
-            currentPing = GetRealPing()
-            lastPing = currentPing
-            combined:SetElementText(2, "Ping: " .. currentPing)
-
-            fpsConn = RunService.Heartbeat:Connect(function(dt)
-                if not watermarkEnabled or not watermarkInstance then return end
-                frameCount = frameCount + 1
-                pingTimer = pingTimer + dt
-                local now = tick()
-                if now - lastTime >= 1 then
-                    currentFPS = frameCount
-                    frameCount = 0
-                    lastTime = now
-                end
-                if pingTimer >= 2 then
-                    pingTimer = 0
-                    currentPing = GetRealPing()
-                end
-                if currentFPS ~= lastFPS then
-                    lastFPS = currentFPS
-                    combined:SetElementText(1, "FPS: " .. currentFPS)
-                end
-                if currentPing ~= lastPing then
-                    lastPing = currentPing
-                    combined:SetElementText(2, "Ping: " .. currentPing)
-                end
-            end)
         else
             if fpsConn then fpsConn:Disconnect(); fpsConn = nil end
             if watermarkInstance then watermarkInstance:Destroy(); watermarkInstance = nil end
