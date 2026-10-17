@@ -746,4 +746,86 @@ _G.createESPCard = function(parent)
     visibleRow.BackgroundTransparency = 1
     visibleRow.Parent = content
 
-    local visible
+    local visibleLabel = Instance.new("TextLabel")
+    visibleLabel.Size = UDim2.new(0, 110, 1, 0)
+    visibleLabel.BackgroundTransparency = 1
+    visibleLabel.Text = "Visible Color"
+    visibleLabel.TextColor3 = Color3.fromRGB(180, 180, 190)
+    visibleLabel.TextSize = 11
+    visibleLabel.Font = Enum.Font.Gotham
+    visibleLabel.Parent = visibleRow
+
+    local visibleBtn = Instance.new("TextButton")
+    visibleBtn.Size = UDim2.new(0, 25, 0, 22)
+    visibleBtn.Position = UDim2.new(1, -30, 0, 2)
+    visibleBtn.BackgroundColor3 = ESPSettings.ChamsVisibleColor
+    visibleBtn.Text = ""
+    visibleBtn.AutoButtonColor = false
+    visibleBtn.Parent = visibleRow
+    Instance.new("UICorner", visibleBtn).CornerRadius = UDim.new(0, 4)
+    createColorPicker(visibleBtn, ESPSettings.ChamsVisibleColor, function(color)
+        ESPSettings.ChamsVisibleColor = color
+    end)
+
+    -- ====== HIDDEN COLOR ======
+    local hiddenRow = Instance.new("Frame")
+    hiddenRow.Size = UDim2.new(1, 0, 0, 26)
+    hiddenRow.BackgroundTransparency = 1
+    hiddenRow.Parent = content
+
+    local hiddenLabel = Instance.new("TextLabel")
+    hiddenLabel.Size = UDim2.new(0, 110, 1, 0)
+    hiddenLabel.BackgroundTransparency = 1
+    hiddenLabel.Text = "Hidden Color"
+    hiddenLabel.TextColor3 = Color3.fromRGB(180, 180, 190)
+    hiddenLabel.TextSize = 11
+    hiddenLabel.Font = Enum.Font.Gotham
+    hiddenLabel.Parent = hiddenRow
+
+    local hiddenBtn = Instance.new("TextButton")
+    hiddenBtn.Size = UDim2.new(0, 25, 0, 22)
+    hiddenBtn.Position = UDim2.new(1, -30, 0, 2)
+    hiddenBtn.BackgroundColor3 = ESPSettings.ChamsHiddenColor
+    hiddenBtn.Text = ""
+    hiddenBtn.AutoButtonColor = false
+    hiddenBtn.Parent = hiddenRow
+    Instance.new("UICorner", hiddenBtn).CornerRadius = UDim.new(0, 4)
+    createColorPicker(hiddenBtn, ESPSettings.ChamsHiddenColor, function(color)
+        ESPSettings.ChamsHiddenColor = color
+    end)
+
+    -- ====== NAME COLOR ======
+    local nameColorRow = Instance.new("Frame")
+    nameColorRow.Size = UDim2.new(1, 0, 0, 26)
+    nameColorRow.BackgroundTransparency = 1
+    nameColorRow.Parent = content
+
+    local nameColorLabel = Instance.new("TextLabel")
+    nameColorLabel.Size = UDim2.new(0, 110, 1, 0)
+    nameColorLabel.BackgroundTransparency = 1
+    nameColorLabel.Text = "Name Color"
+    nameColorLabel.TextColor3 = Color3.fromRGB(180, 180, 190)
+    nameColorLabel.TextSize = 11
+    nameColorLabel.Font = Enum.Font.Gotham
+    nameColorLabel.Parent = nameColorRow
+
+    local nameColorBtn = Instance.new("TextButton")
+    nameColorBtn.Size = UDim2.new(0, 25, 0, 22)
+    nameColorBtn.Position = UDim2.new(1, -30, 0, 2)
+    nameColorBtn.BackgroundColor3 = ESPSettings.NameColor
+    nameColorBtn.Text = ""
+    nameColorBtn.AutoButtonColor = false
+    nameColorBtn.Parent = nameColorRow
+    Instance.new("UICorner", nameColorBtn).CornerRadius = UDim.new(0, 4)
+    createColorPicker(nameColorBtn, ESPSettings.NameColor, function(color)
+        ESPSettings.NameColor = color
+    end)
+
+    createCheckbox(content, "Health Bar", ESPSettings.HealthBar, function(v) ESPSettings.HealthBar = v end)
+    createCheckbox(content, "Name ESP", ESPSettings.NameESP, function(v) ESPSettings.NameESP = v end)
+    createCheckbox(content, "Team Check", ESPSettings.TeamCheck, function(v) ESPSettings.TeamCheck = v end)
+    createSlider(content, "Max Distance", 100, 1000, ESPSettings.MaxDistance, "m", function(v) ESPSettings.MaxDistance = v end)
+end
+
+_G.ESPSettings = ESPSettings
+_G.ESPToggle = ESP.toggle
