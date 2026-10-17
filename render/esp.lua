@@ -3,6 +3,8 @@
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 local Camera = Workspace.CurrentCamera
 local Player = Players.LocalPlayer
@@ -19,8 +21,6 @@ local createSlider = MissWare.createSlider or function() end
 local createCheckbox = MissWare.createCheckbox or function() end
 local createDropdown = MissWare.createDropdown or function() end
 local MainFrame = MissWare.MainFrame
-local TweenService = game:GetService("TweenService")
-local UserInputService = game:GetService("UserInputService")
 
 local ESPSettings = {
     Enabled = false,
@@ -46,6 +46,154 @@ local ESP = {
     toggle = nil,
 }
 
+-- ============ COLOR PICKER ============
+local function createColorPicker(btn, currentColor, callback)
+    local colorPickerVisible = false
+    btn.MouseButton1Click:Connect(function()
+        if colorPickerVisible then return end
+        if not MainFrame then return end
+        colorPickerVisible = true
+
+        local overlay = Instance.new("Frame")
+        overlay.Size = UDim2.new(1, 0, 1, 0)
+        overlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+        overlay.BackgroundTransparency = 0.5
+        overlay.BorderSizePixel = 0
+        overlay.ZIndex = 999
+        overlay.Parent = MainFrame
+
+        local popup = Instance.new("Frame")
+        popup.Size = UDim2.new(0, 220, 0, 0)
+        popup.Position = UDim2.new(0.5, -110, 0.5, -100)
+        popup.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+        popup.BackgroundTransparency = 1
+        popup.ClipsDescendants = true
+        popup.ZIndex = 1000
+        popup.Parent = overlay
+        Instance.new("UICorner", popup).CornerRadius = UDim.new(0, 12)
+
+        local stroke = Instance.new("UIStroke", popup)
+        stroke.Thickness = 1
+        stroke.Color = Color3.fromRGB(60, 60, 75)
+        stroke.Transparency = 1
+
+        local title = Instance.new("TextLabel")
+        title.Size = UDim2.new(1, -20, 0, 30)
+        title.Position = UDim2.new(0, 10, 0, 8)
+        title.BackgroundTransparency = 1
+        title.Text = "Select Color"
+        title.TextColor3 = Color3.fromRGB(255, 255, 255)
+        title.TextSize = 16
+        title.Font = Enum.Font.GothamBold
+        title.TextXAlignment = Enum.TextXAlignment.Left
+        title.Parent = popup
+
+        local closeBtn = Instance.new("TextButton")
+        closeBtn.Size = UDim2.new(0, 30, 0, 30)
+        closeBtn.Position = UDim2.new(1, -30, 0, 8)
+        closeBtn.BackgroundTransparency = 1
+        closeBtn.Text = "X"
+        closeBtn.TextColor3 = Color3.fromRGB(180, 180, 190)
+        closeBtn.Font = Enum.Font.GothamBold
+        closeBtn.TextSize = 16
+        closeBtn.Parent = popup
+        closeBtn.MouseButton1Click:Connect(function()
+            colorPickerVisible = false
+            TweenService:Create(popup, TweenInfo.new(0.15, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
+                Size = UDim2.new(0, 0, 0, 0),
+                Position = UDim2.new(0.5, 0, 0.5, -100),
+                BackgroundTransparency = 1
+            }):Play()
+            TweenService:Create(stroke, TweenInfo.new(0.15), {Transparency = 1}):Play()
+            task.wait(0.15)
+            overlay:Destroy()
+        end)
+
+        local colorContainer = Instance.new("Frame")
+        colorContainer.Size = UDim2.new(1, -20, 0, 0)
+        colorContainer.Position = UDim2.new(0, 10, 0, 50)
+        colorContainer.BackgroundTransparency = 1
+        colorContainer.Parent = popup
+
+        local colorData = {
+            Color3.fromRGB(0, 255, 0), Color3.fromRGB(255, 0, 0), Color3.fromRGB(0, 150, 255),
+            Color3.fromRGB(255, 255, 0), Color3.fromRGB(255, 0, 255), Color3.fromRGB(255, 150, 0),
+            Color3.fromRGB(0, 255, 255), Color3.fromRGB(255, 255, 255), Color3.fromRGB(255, 100, 100),
+            Color3.fromRGB(100, 200, 255), Color3.fromRGB(200, 255, 100), Color3.fromRGB(180, 130, 255),
+        }
+
+        for i, color in ipairs(colorData) do
+            local colorBtn = Instance.new("TextButton")
+            colorBtn.Size = UDim2.new(0, 38, 0, 38)
+            colorBtn.Position = UDim2.new(0, 10 + ((i - 1) % 5) * 44, 0, 10 + math.floor((i - 1) / 5) * 48)
+            colorBtn.BackgroundColor3 = color
+            colorBtn.Text = ""
+            colorBtn.AutoButtonColor = false
+            colorBtn.ZIndex = 1000
+            colorBtn.Parent = colorContainer
+            Instance.new("UICorner", colorBtn).CornerRadius = UDim.new(1, 0)
+
+            if color == currentColor then
+                local b = Instance.new("UIStroke", colorBtn)
+                b.Thickness = 2
+                b.Color = Color3.fromRGB(255, 255, 255)
+            end
+
+            colorBtn.MouseButton1Click:Connect(function()
+                callback(color)
+                btn.BackgroundColor3 = color
+                colorPickerVisible = false
+                TweenService:Create(popup, TweenInfo.new(0.15, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
+                    Size = UDim2.new(0, 0, 0, 0),
+                    Position = UDim2.new(0.5, 0, 0.5, -100),
+                    BackgroundTransparency = 1
+                }):Play()
+                TweenService:Create(stroke, TweenInfo.new(0.15), {Transparency = 1}):Play()
+                task.wait(0.15)
+                overlay:Destroy()
+            end)
+        end
+
+        local rows = math.ceil(#colorData / 5)
+        local height = 50 + rows * 48 + 15
+        popup.Size = UDim2.new(0, 220, 0, height)
+        colorContainer.Size = UDim2.new(1, -20, 0, rows * 48 + 10)
+
+        popup.BackgroundTransparency = 1
+        popup.Size = UDim2.new(0, 0, 0, 0)
+        stroke.Transparency = 1
+
+        TweenService:Create(popup, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+            Size = UDim2.new(0, 220, 0, height),
+            BackgroundTransparency = 0
+        }):Play()
+        TweenService:Create(stroke, TweenInfo.new(0.3), {Transparency = 0}):Play()
+
+        local function checkClickOutside(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                local mp = UserInputService:GetMouseLocation()
+                local ap = popup.AbsolutePosition
+                local as = popup.AbsoluteSize
+                if not (mp.X >= ap.X and mp.X <= ap.X + as.X and mp.Y >= ap.Y and mp.Y <= ap.Y + as.Y) then
+                    colorPickerVisible = false
+                    TweenService:Create(popup, TweenInfo.new(0.15, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
+                        Size = UDim2.new(0, 0, 0, 0),
+                        Position = UDim2.new(0.5, 0, 0.5, -100),
+                        BackgroundTransparency = 1
+                    }):Play()
+                    TweenService:Create(stroke, TweenInfo.new(0.15), {Transparency = 1}):Play()
+                    task.wait(0.15)
+                    overlay:Destroy()
+                end
+            end
+        end
+        overlay.InputBegan:Connect(checkClickOutside)
+    end)
+end
+
+_G.createColorPickerFromESP = createColorPicker
+
+-- ============ BASE FUNCTIONS ============
 local function isRealPlayer(plr)
     if not plr or typeof(plr) ~= "Instance" then return false end
     if not plr:IsA("Player") then return false end
@@ -107,6 +255,7 @@ local function isPlayerVisible(plr)
     return true
 end
 
+-- ============ OPERATION 1 ============
 local function createNewESP(plr)
     if not isRealPlayer(plr) or ESP.espData[plr] then return end
     if not Drawing then return end
@@ -244,6 +393,7 @@ local function updateNewESP()
     end
 end
 
+-- ============ CLASSIC ============
 local function isTargetVisible(char, now)
     if not char or not char.Parent then return true end
     local head = char:FindFirstChild("Head")
@@ -518,17 +668,18 @@ Players.PlayerRemoving:Connect(function(plr)
     end
 end)
 
+-- ============ ESP CARD (С ЦВЕТАМИ) ============
 _G.createESPCard = function(parent)
     local card = Instance.new("Frame")
-    card.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    card.BackgroundColor3 = Color3.fromRGB(20,20,20)
     card.BackgroundTransparency = 0
     card.BorderSizePixel = 0
-    card.Size = UDim2.new(0, 225, 0, 325)
+    card.Size = UDim2.new(0, 225, 0, 420)
     card.Parent = parent
     Instance.new("UICorner", card).CornerRadius = UDim.new(0, 8)
     local cs = Instance.new("UIStroke", card)
     cs.Thickness = 1
-    cs.Color = Color3.fromRGB(45, 45, 55)
+    cs.Color = Color3.fromRGB(45,45,55)
 
     local header = Instance.new("Frame")
     header.Size = UDim2.new(1, -16, 0, 36)
@@ -588,11 +739,11 @@ _G.createESPCard = function(parent)
         ESPSettings.Mode = v
         if ESPSettings.Enabled then _G.stopESP(); _G.startESP() end
     end)
-    createCheckbox(content, "Health Bar", ESPSettings.HealthBar, function(v) ESPSettings.HealthBar = v end)
-    createCheckbox(content, "Name ESP", ESPSettings.NameESP, function(v) ESPSettings.NameESP = v end)
-    createCheckbox(content, "Team Check", ESPSettings.TeamCheck, function(v) ESPSettings.TeamCheck = v end)
-    createSlider(content, "Max Distance", 100, 1000, ESPSettings.MaxDistance, "m", function(v) ESPSettings.MaxDistance = v end)
-end
 
-_G.ESPSettings = ESPSettings
-_G.ESPToggle = ESP.toggle
+    -- ====== VISIBLE COLOR ======
+    local visibleRow = Instance.new("Frame")
+    visibleRow.Size = UDim2.new(1, 0, 0, 26)
+    visibleRow.BackgroundTransparency = 1
+    visibleRow.Parent = content
+
+    local visible
