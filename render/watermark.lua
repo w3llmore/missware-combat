@@ -10,10 +10,46 @@ local WM_TextService = game:GetService("TextService")
 local WM_Stats = game:GetService("Stats")
 local Player = Players.LocalPlayer
 
-local function createColorPicker(btn, currentColor, callback)
+local MissWare = _G.MissWare or {}
+local ACCENT_COLORS = MissWare.ACCENT_COLORS or {Default = Color3.new(1,1,1)}
+local currentAccentColor = MissWare.currentAccentColor or "Default"
+local createSlider = MissWare.createSlider or function() end
+local createCheckbox = MissWare.createCheckbox or function() end
+local createDropdown = MissWare.createDropdown or function() end
+
+local WM_ICON_FONT = Font.new(
+    "rbxasset://LuaPackages/Packages/_Index/BuilderIcons/BuilderIcons/BuilderIcons.json",
+    Enum.FontWeight.Bold,
+    Enum.FontStyle.Normal
+)
+
+local AllWatermarks = {}
+local _pingItem = nil
+
+local function UpdateAllWatermarksColor()
+    local color = ACCENT_COLORS[currentAccentColor]
+    for _, wm in ipairs(AllWatermarks) do
+        if wm.UpdateMissWareColor then wm:UpdateMissWareColor(color) end
+    end
+end
+
+local function GetRealPing()
+    if not _pingItem or not _pingItem.Parent then
+        local network = WM_Stats:FindFirstChild("Network")
+        local serverStats = network and network:FindFirstChild("ServerStatsItem")
+        _pingItem = serverStats and serverStats:FindFirstChild("Data Ping")
+    end
+    if not _pingItem then return 0 end
+    local ok, val = pcall(function() return _pingItem:GetValue() end)
+    if ok and type(val) == "number" then return math.floor(val) end
+    return 0
+end
+
+-- ====== ВСТРОЕННЫЙ КОЛОРПИКЕР (рисуем внутри карточки) ======
+local function createLocalColorPicker(parentCard, btn, currentColor, callback)
     local colorPickerVisible = false
     btn.MouseButton1Click:Connect(function()
-        if colorPickerVisible or not MainFrame then return end
+        if colorPickerVisible then return end
         colorPickerVisible = true
 
         local overlay = Instance.new("Frame")
@@ -22,7 +58,8 @@ local function createColorPicker(btn, currentColor, callback)
         overlay.BackgroundTransparency = 0.5
         overlay.BorderSizePixel = 0
         overlay.ZIndex = 999
-        overlay.Parent = MainFrame
+        -- parentCard — это MainFrame (вкладка), передадим его через глобалку
+        overlay.Parent = _G.MissWare and _G.MissWare.MainFrame or parentCard
 
         local popup = Instance.new("Frame")
         popup.Size = UDim2.new(0, 240, 0, 0)
@@ -92,22 +129,22 @@ local function createColorPicker(btn, currentColor, callback)
         }
 
         for i, color in ipairs(colorData) do
-            local colorBtn = Instance.new("TextButton")
-            colorBtn.BackgroundColor3 = color
-            colorBtn.Text = ""
-            colorBtn.AutoButtonColor = false
-            colorBtn.ZIndex = 1000
-            colorBtn.LayoutOrder = i
-            colorBtn.Parent = colorContainer
-            Instance.new("UICorner", colorBtn).CornerRadius = UDim.new(1, 0)
+            local cBtn = Instance.new("TextButton")
+            cBtn.BackgroundColor3 = color
+            cBtn.Text = ""
+            cBtn.AutoButtonColor = false
+            cBtn.ZIndex = 1000
+            cBtn.LayoutOrder = i
+            cBtn.Parent = colorContainer
+            Instance.new("UICorner", cBtn).CornerRadius = UDim.new(1, 0)
             
             if color == currentColor then
-                local b = Instance.new("UIStroke", colorBtn)
+                local b = Instance.new("UIStroke", cBtn)
                 b.Thickness = 2
                 b.Color = Color3.fromRGB(255, 255, 255)
             end
             
-            colorBtn.MouseButton1Click:Connect(function()
+            cBtn.MouseButton1Click:Connect(function()
                 callback(color)
                 btn.BackgroundColor3 = color
                 closePopup()
@@ -140,43 +177,6 @@ local function createColorPicker(btn, currentColor, callback)
         end
         overlay.InputBegan:Connect(checkClickOutside)
     end)
-end
-
-local MissWare = _G.MissWare or {}
-local ACCENT_COLORS = MissWare.ACCENT_COLORS or {Default = Color3.new(1,1,1)}
-local currentAccentColor = MissWare.currentAccentColor or "Default"
-local createSlider = MissWare.createSlider or function() end
-local createCheckbox = MissWare.createCheckbox or function() end
-local createDropdown = MissWare.createDropdown or function() end
-local MainFrame = MissWare.MainFrame
-local createColorPickerFromESP = _G.createColorPickerFromESP
-
-local WM_ICON_FONT = Font.new(
-    "rbxasset://LuaPackages/Packages/_Index/BuilderIcons/BuilderIcons/BuilderIcons.json",
-    Enum.FontWeight.Bold,
-    Enum.FontStyle.Normal
-)
-
-local AllWatermarks = {}
-local _pingItem = nil
-
-local function UpdateAllWatermarksColor()
-    local color = ACCENT_COLORS[currentAccentColor]
-    for _, wm in ipairs(AllWatermarks) do
-        if wm.UpdateMissWareColor then wm:UpdateMissWareColor(color) end
-    end
-end
-
-local function GetRealPing()
-    if not _pingItem or not _pingItem.Parent then
-        local network = WM_Stats:FindFirstChild("Network")
-        local serverStats = network and network:FindFirstChild("ServerStatsItem")
-        _pingItem = serverStats and serverStats:FindFirstChild("Data Ping")
-    end
-    if not _pingItem then return 0 end
-    local ok, val = pcall(function() return _pingItem:GetValue() end)
-    if ok and type(val) == "number" then return math.floor(val) end
-    return 0
 end
 
 local Watermark = {}
@@ -516,7 +516,8 @@ _G.createWatermarkCard = function(parent)
     colorBtn.Parent = colorRow
     Instance.new("UICorner", colorBtn).CornerRadius = UDim.new(0, 4)
 
-    createColorPicker(colorBtn, watermarkColor, function(color)
+    -- Вызов нашего встроенного колорпикера. Передаем 'parent', чтобы он рисовал окно поверх карточки
+    createLocalColorPicker(parent, colorBtn, watermarkColor, function(color)
         watermarkColor = color
         colorBtn.BackgroundColor3 = color
         if watermarkInstance and watermarkInstance.UpdateMissWareColor then
