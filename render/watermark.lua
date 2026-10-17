@@ -45,12 +45,22 @@ local function GetRealPing()
     return 0
 end
 
--- ====== ВСТРОЕННЫЙ КОЛОРПИКЕР (рисуем внутри карточки) ======
-local function createLocalColorPicker(parentCard, btn, currentColor, callback)
+-- ====== ВСТРОЕННЫЙ КОЛОРПИКЕР (на отдельном ScreenGui) ======
+local ColorPickerGui = nil
+local function createLocalColorPicker(btn, currentColor, callback)
     local colorPickerVisible = false
     btn.MouseButton1Click:Connect(function()
         if colorPickerVisible then return end
         colorPickerVisible = true
+
+        -- Создаём ОТДЕЛЬНЫЙ ScreenGui, чтобы окно не обрезалось MainFrame'ом
+        if not ColorPickerGui then
+            ColorPickerGui = Instance.new("ScreenGui")
+            ColorPickerGui.Name = "MissWare_ColorPicker"
+            ColorPickerGui.ResetOnSpawn = false
+            ColorPickerGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+            ColorPickerGui.Parent = CoreGui
+        end
 
         local overlay = Instance.new("Frame")
         overlay.Size = UDim2.new(1, 0, 1, 0)
@@ -58,8 +68,7 @@ local function createLocalColorPicker(parentCard, btn, currentColor, callback)
         overlay.BackgroundTransparency = 0.5
         overlay.BorderSizePixel = 0
         overlay.ZIndex = 999
-        -- parentCard — это MainFrame (вкладка), передадим его через глобалку
-        overlay.Parent = _G.MissWare and _G.MissWare.MainFrame or parentCard
+        overlay.Parent = ColorPickerGui
 
         local popup = Instance.new("Frame")
         popup.Size = UDim2.new(0, 240, 0, 0)
@@ -516,8 +525,7 @@ _G.createWatermarkCard = function(parent)
     colorBtn.Parent = colorRow
     Instance.new("UICorner", colorBtn).CornerRadius = UDim.new(0, 4)
 
-    -- Вызов нашего встроенного колорпикера. Передаем 'parent', чтобы он рисовал окно поверх карточки
-    createLocalColorPicker(parent, colorBtn, watermarkColor, function(color)
+    createLocalColorPicker(colorBtn, watermarkColor, function(color)
         watermarkColor = color
         colorBtn.BackgroundColor3 = color
         if watermarkInstance and watermarkInstance.UpdateMissWareColor then
