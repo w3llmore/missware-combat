@@ -1,5 +1,5 @@
 -- render/watermark.lua
--- MissWare Watermark Module (FPS, Ping, Brand)
+-- MissWare Watermark Module (FPS, Ping, Brand) с цветовым пикером
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -17,6 +17,7 @@ local createSlider = MissWare.createSlider or function() end
 local createCheckbox = MissWare.createCheckbox or function() end
 local createDropdown = MissWare.createDropdown or function() end
 local MainFrame = MissWare.MainFrame
+local createColorPickerFromESP = _G.createColorPickerFromESP
 
 local WM_ICON_FONT = Font.new(
     "rbxasset://LuaPackages/Packages/_Index/BuilderIcons/BuilderIcons/BuilderIcons.json",
@@ -301,7 +302,7 @@ _G.createWatermarkCard = function(parent)
     card.BackgroundColor3 = Color3.fromRGB(20,20,20)
     card.BackgroundTransparency = 0
     card.BorderSizePixel = 0
-    card.Size = UDim2.new(0, 225, 0, 110)
+    card.Size = UDim2.new(0, 225, 0, 140)
     card.Parent = parent
     Instance.new("UICorner", card).CornerRadius = UDim.new(0, 8)
     local cs = Instance.new("UIStroke", card)
@@ -358,6 +359,40 @@ _G.createWatermarkCard = function(parent)
         currentPosition = v
         if watermarkInstance then watermarkInstance:SetPosition(v) end
     end)
+
+    -- ====== MISSWARE COLOR ======
+    local colorRow = Instance.new("Frame")
+    colorRow.Size = UDim2.new(1, 0, 0, 26)
+    colorRow.BackgroundTransparency = 1
+    colorRow.Parent = content
+
+    local colorLabel = Instance.new("TextLabel")
+    colorLabel.Size = UDim2.new(0, 110, 1, 0)
+    colorLabel.BackgroundTransparency = 1
+    colorLabel.Text = "MissWare Color"
+    colorLabel.TextColor3 = Color3.fromRGB(180, 180, 190)
+    colorLabel.TextSize = 11
+    colorLabel.Font = Enum.Font.Gotham
+    colorLabel.Parent = colorRow
+
+    local colorBtn = Instance.new("TextButton")
+    colorBtn.Size = UDim2.new(0, 25, 0, 22)
+    colorBtn.Position = UDim2.new(1, -30, 0, 2)
+    colorBtn.BackgroundColor3 = watermarkColor
+    colorBtn.Text = ""
+    colorBtn.AutoButtonColor = false
+    colorBtn.Parent = colorRow
+    Instance.new("UICorner", colorBtn).CornerRadius = UDim.new(0, 4)
+
+    if createColorPickerFromESP then
+        createColorPickerFromESP(colorBtn, watermarkColor, function(color)
+            watermarkColor = color
+            colorBtn.BackgroundColor3 = color
+            if watermarkInstance and watermarkInstance.UpdateMissWareColor then
+                watermarkInstance:UpdateMissWareColor(color)
+            end
+        end)
+    end
 
     toggle.MouseButton1Click:Connect(function()
         watermarkEnabled = not watermarkEnabled
