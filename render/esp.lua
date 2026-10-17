@@ -431,7 +431,7 @@ _G.createESPCard = function(parent)
     card.BackgroundColor3 = Color3.fromRGB(20,20,20)
     card.BackgroundTransparency = 0
     card.BorderSizePixel = 0
-    card.Size = UDim2.new(0, 225, 0, 420)
+    card.Size = UDim2.new(0, 225, 0, 480) -- Увеличили высоту
     card.Parent = parent
     Instance.new("UICorner", card).CornerRadius = UDim.new(0, 8)
     local cs = Instance.new("UIStroke", card)
@@ -489,6 +489,7 @@ _G.createESPCard = function(parent)
 
     createDropdown(content, "Mode", {"Classic", "Operation 1", "CounterBlox"}, ESPSettings.Mode, function(v) ESPSettings.Mode = v; if ESPSettings.Enabled then _G.stopESP(); _G.startESP() end end)
 
+    -- ЦВЕТА В САМОМ ВЕРХУ
     local function colorRowCreate(labelText, colorVal, onPick)
         local row = Instance.new("Frame")
         row.Size = UDim2.new(1, 0, 0, 26)
