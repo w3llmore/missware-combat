@@ -30,14 +30,12 @@ local ESP = {
     visibilityCache = {}, frameCounter = 0, newEspEnabled = false, espData = {}, toggle = nil,
 }
 
--- ====== ОБЩИЙ КОЛОРПИКЕР (ОТДЕЛЬНЫЙ ScreenGui) ======
 local ColorPickerGui = nil
 local function createColorPicker(btn, currentColor, callback)
     local colorPickerVisible = false
     btn.MouseButton1Click:Connect(function()
         if colorPickerVisible then return end
         colorPickerVisible = true
-
         if not ColorPickerGui then
             ColorPickerGui = Instance.new("ScreenGui")
             ColorPickerGui.Name = "MissWare_ESP_ColorPicker"
@@ -45,7 +43,6 @@ local function createColorPicker(btn, currentColor, callback)
             ColorPickerGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
             ColorPickerGui.Parent = CoreGui
         end
-
         local overlay = Instance.new("Frame")
         overlay.Size = UDim2.new(1, 0, 1, 0)
         overlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
@@ -53,7 +50,6 @@ local function createColorPicker(btn, currentColor, callback)
         overlay.BorderSizePixel = 0
         overlay.ZIndex = 999
         overlay.Parent = ColorPickerGui
-
         local popup = Instance.new("Frame")
         popup.Size = UDim2.new(0, 240, 0, 0)
         popup.Position = UDim2.new(0.5, -120, 0.5, -120)
@@ -63,12 +59,10 @@ local function createColorPicker(btn, currentColor, callback)
         popup.ZIndex = 1000
         popup.Parent = overlay
         Instance.new("UICorner", popup).CornerRadius = UDim.new(0, 12)
-
         local stroke = Instance.new("UIStroke", popup)
         stroke.Thickness = 1
         stroke.Color = Color3.fromRGB(60, 60, 75)
         stroke.Transparency = 1
-
         local title = Instance.new("TextLabel")
         title.Size = UDim2.new(1, -20, 0, 30)
         title.Position = UDim2.new(0, 10, 0, 8)
@@ -79,7 +73,6 @@ local function createColorPicker(btn, currentColor, callback)
         title.Font = Enum.Font.GothamBold
         title.TextXAlignment = Enum.TextXAlignment.Left
         title.Parent = popup
-
         local closeBtn = Instance.new("TextButton")
         closeBtn.Size = UDim2.new(0, 30, 0, 30)
         closeBtn.Position = UDim2.new(1, -30, 0, 8)
@@ -89,7 +82,6 @@ local function createColorPicker(btn, currentColor, callback)
         closeBtn.Font = Enum.Font.GothamBold
         closeBtn.TextSize = 16
         closeBtn.Parent = popup
-        
         local function closePopup()
             colorPickerVisible = false
             TweenService:Create(popup, TweenInfo.new(0.15, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
@@ -100,19 +92,16 @@ local function createColorPicker(btn, currentColor, callback)
             overlay:Destroy()
         end
         closeBtn.MouseButton1Click:Connect(closePopup)
-
         local colorContainer = Instance.new("Frame")
         colorContainer.Size = UDim2.new(1, -20, 0, 0)
         colorContainer.Position = UDim2.new(0, 10, 0, 45)
         colorContainer.BackgroundTransparency = 1
         colorContainer.Parent = popup
-
         local grid = Instance.new("UIGridLayout")
         grid.CellSize = UDim2.new(0, 38, 0, 38)
         grid.CellPadding = UDim2.new(0, 6, 0, 6)
         grid.SortOrder = Enum.SortOrder.LayoutOrder
         grid.Parent = colorContainer
-
         local colorData = {
             Color3.fromRGB(0, 255, 0), Color3.fromRGB(255, 0, 0), Color3.fromRGB(0, 150, 255),
             Color3.fromRGB(255, 255, 0), Color3.fromRGB(255, 0, 255), Color3.fromRGB(255, 150, 0),
@@ -120,7 +109,6 @@ local function createColorPicker(btn, currentColor, callback)
             Color3.fromRGB(100, 200, 255), Color3.fromRGB(200, 255, 100), Color3.fromRGB(180, 130, 255),
             Color3.fromRGB(0, 0, 0), Color3.fromRGB(128, 128, 128), Color3.fromRGB(255, 200, 200)
         }
-
         for i, color in ipairs(colorData) do
             local cBtn = Instance.new("TextButton")
             cBtn.BackgroundColor3 = color
@@ -130,34 +118,28 @@ local function createColorPicker(btn, currentColor, callback)
             cBtn.LayoutOrder = i
             cBtn.Parent = colorContainer
             Instance.new("UICorner", cBtn).CornerRadius = UDim.new(1, 0)
-            
             if color == currentColor then
                 local b = Instance.new("UIStroke", cBtn)
                 b.Thickness = 2
                 b.Color = Color3.fromRGB(255, 255, 255)
             end
-            
             cBtn.MouseButton1Click:Connect(function()
                 callback(color)
                 btn.BackgroundColor3 = color
                 closePopup()
             end)
         end
-
         local rows = math.ceil(#colorData / 5)
         local height = 45 + rows * 44 + 15
         popup.Size = UDim2.new(0, 240, 0, height)
         colorContainer.Size = UDim2.new(1, -20, 0, rows * 44)
-
         popup.BackgroundTransparency = 1
         popup.Size = UDim2.new(0, 0, 0, 0)
         stroke.Transparency = 1
-        
         TweenService:Create(popup, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
             Size = UDim2.new(0, 240, 0, height), BackgroundTransparency = 0
         }):Play()
         TweenService:Create(stroke, TweenInfo.new(0.3), {Transparency = 0}):Play()
-
         local function checkClickOutside(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 then
                 local mp = UserInputService:GetMouseLocation()
@@ -172,7 +154,6 @@ local function createColorPicker(btn, currentColor, callback)
     end)
 end
 
--- (ДАЛЬШЕ ИДЕТ ВСЯ ЛОГИКА ESP - ОНА БЕЗ ИЗМЕНЕНИЙ)
 local function isRealPlayer(plr)
     if not plr or typeof(plr) ~= "Instance" then return false end
     if not plr:IsA("Player") then return false end
@@ -445,7 +426,6 @@ end
 Players.PlayerAdded:Connect(function(plr) if isRealPlayer(plr) and ESPSettings.Enabled and ESPSettings.Mode=="Operation 1" then createNewESP(plr) end end)
 Players.PlayerRemoving:Connect(function(plr) removeNewESP(plr); if ESP.activeNames[plr] then pcall(function() ESP.activeNames[plr]:Remove() end); ESP.activeNames[plr]=nil end; if ESP.activeHealthBars[plr] then local d=ESP.activeHealthBars[plr]; pcall(function() d.Text:Remove() end); pcall(function() d.Heart:Remove() end); ESP.activeHealthBars[plr]=nil end end)
 
--- ====== КАРТОЧКА ESP (С ЦВЕТАМИ) ======
 _G.createESPCard = function(parent)
     local card = Instance.new("Frame")
     card.BackgroundColor3 = Color3.fromRGB(20,20,20)
