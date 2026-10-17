@@ -45,7 +45,7 @@ local function GetRealPing()
     return 0
 end
 
--- ====== ВСТРОЕННЫЙ КОЛОРПИКЕР (на отдельном ScreenGui) ======
+-- ====== ВСТРОЕННЫЙ КОЛОРПИКЕР (отдельный ScreenGui) ======
 local ColorPickerGui = nil
 local function createLocalColorPicker(btn, currentColor, callback)
     local colorPickerVisible = false
@@ -53,10 +53,9 @@ local function createLocalColorPicker(btn, currentColor, callback)
         if colorPickerVisible then return end
         colorPickerVisible = true
 
-        -- Создаём ОТДЕЛЬНЫЙ ScreenGui, чтобы окно не обрезалось MainFrame'ом
         if not ColorPickerGui then
             ColorPickerGui = Instance.new("ScreenGui")
-            ColorPickerGui.Name = "MissWare_ColorPicker"
+            ColorPickerGui.Name = "MissWare_WM_ColorPicker"
             ColorPickerGui.ResetOnSpawn = false
             ColorPickerGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
             ColorPickerGui.Parent = CoreGui
@@ -525,6 +524,7 @@ _G.createWatermarkCard = function(parent)
     colorBtn.Parent = colorRow
     Instance.new("UICorner", colorBtn).CornerRadius = UDim.new(0, 4)
 
+    -- Вызываем локальный пикер
     createLocalColorPicker(colorBtn, watermarkColor, function(color)
         watermarkColor = color
         colorBtn.BackgroundColor3 = color
