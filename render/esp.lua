@@ -46,8 +46,8 @@ local function createColorPicker(btn, currentColor, callback)
         overlay.Parent = MainFrame
 
         local popup = Instance.new("Frame")
-        popup.Size = UDim2.new(0, 220, 0, 0)
-        popup.Position = UDim2.new(0.5, -110, 0.5, -100)
+        popup.Size = UDim2.new(0, 240, 0, 0)
+        popup.Position = UDim2.new(0.5, -120, 0.5, -120)
         popup.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
         popup.BackgroundTransparency = 1
         popup.ClipsDescendants = true
@@ -80,56 +80,88 @@ local function createColorPicker(btn, currentColor, callback)
         closeBtn.Font = Enum.Font.GothamBold
         closeBtn.TextSize = 16
         closeBtn.Parent = popup
-        closeBtn.MouseButton1Click:Connect(function()
+        
+        local function closePopup()
             colorPickerVisible = false
             TweenService:Create(popup, TweenInfo.new(0.15, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
-                Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0.5, 0, 0.5, -100), BackgroundTransparency = 1
+                Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0.5, 0, 0.5, -120), BackgroundTransparency = 1
             }):Play()
             TweenService:Create(stroke, TweenInfo.new(0.15), {Transparency = 1}):Play()
             task.wait(0.15)
             overlay:Destroy()
-        end)
+        end
+        closeBtn.MouseButton1Click:Connect(closePopup)
 
         local colorContainer = Instance.new("Frame")
         colorContainer.Size = UDim2.new(1, -20, 0, 0)
-        colorContainer.Position = UDim2.new(0, 10, 0, 50)
+        colorContainer.Position = UDim2.new(0, 10, 0, 45)
         colorContainer.BackgroundTransparency = 1
         colorContainer.Parent = popup
+
+        local grid = Instance.new("UIGridLayout")
+        grid.CellSize = UDim2.new(0, 38, 0, 38)
+        grid.CellPadding = UDim2.new(0, 6, 0, 6)
+        grid.SortOrder = Enum.SortOrder.LayoutOrder
+        grid.Parent = colorContainer
 
         local colorData = {
             Color3.fromRGB(0, 255, 0), Color3.fromRGB(255, 0, 0), Color3.fromRGB(0, 150, 255),
             Color3.fromRGB(255, 255, 0), Color3.fromRGB(255, 0, 255), Color3.fromRGB(255, 150, 0),
             Color3.fromRGB(0, 255, 255), Color3.fromRGB(255, 255, 255), Color3.fromRGB(255, 100, 100),
             Color3.fromRGB(100, 200, 255), Color3.fromRGB(200, 255, 100), Color3.fromRGB(180, 130, 255),
+            Color3.fromRGB(0, 0, 0), Color3.fromRGB(128, 128, 128), Color3.fromRGB(255, 200, 200)
         }
 
         for i, color in ipairs(colorData) do
             local colorBtn = Instance.new("TextButton")
-            colorBtn.Size = UDim2.new(0, 38, 0, 38)
-            colorBtn.Position = UDim2.new(0, 10 + ((i - 1) % 5) * 44, 0, 10 + math.floor((i - 1) / 5) * 48)
             colorBtn.BackgroundColor3 = color
             colorBtn.Text = ""
             colorBtn.AutoButtonColor = false
             colorBtn.ZIndex = 1000
+            colorBtn.LayoutOrder = i
             colorBtn.Parent = colorContainer
             Instance.new("UICorner", colorBtn).CornerRadius = UDim.new(1, 0)
+            
             if color == currentColor then
                 local b = Instance.new("UIStroke", colorBtn)
                 b.Thickness = 2
                 b.Color = Color3.fromRGB(255, 255, 255)
             end
+            
             colorBtn.MouseButton1Click:Connect(function()
                 callback(color)
                 btn.BackgroundColor3 = color
-                colorPickerVisible = false
-                TweenService:Create(popup, TweenInfo.new(0.15, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
-                    Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0.5, 0, 0.5, -100), BackgroundTransparency = 1
-                }):Play()
-                TweenService:Create(stroke, TweenInfo.new(0.15), {Transparency = 1}):Play()
-                task.wait(0.15)
-                overlay:Destroy()
+                closePopup()
             end)
         end
+
+        local rows = math.ceil(#colorData / 5)
+        local height = 45 + rows * 44 + 15
+        popup.Size = UDim2.new(0, 240, 0, height)
+        colorContainer.Size = UDim2.new(1, -20, 0, rows * 44)
+
+        popup.BackgroundTransparency = 1
+        popup.Size = UDim2.new(0, 0, 0, 0)
+        stroke.Transparency = 1
+        
+        TweenService:Create(popup, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+            Size = UDim2.new(0, 240, 0, height), BackgroundTransparency = 0
+        }):Play()
+        TweenService:Create(stroke, TweenInfo.new(0.3), {Transparency = 0}):Play()
+
+        local function checkClickOutside(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                local mp = UserInputService:GetMouseLocation()
+                local ap = popup.AbsolutePosition
+                local as = popup.AbsoluteSize
+                if not (mp.X >= ap.X and mp.X <= ap.X + as.X and mp.Y >= ap.Y and mp.Y <= ap.Y + as.Y) then
+                    closePopup()
+                end
+            end
+        end
+        overlay.InputBegan:Connect(checkClickOutside)
+    end)
+end
 
         local rows = math.ceil(#colorData / 5)
         local height = 50 + rows * 48 + 15
