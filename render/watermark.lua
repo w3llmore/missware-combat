@@ -11,6 +11,8 @@ local Player = Players.LocalPlayer
 local MissWare = _G.MissWare or {}
 local ACCENT_COLORS = MissWare.ACCENT_COLORS or {Default = Color3.new(1,1,1)}
 local currentAccentColor = MissWare.currentAccentColor or "Default"
+local createSlider = MissWare.createSlider or function() end
+local createCheckbox = MissWare.createCheckbox or function() end
 local createDropdown = MissWare.createDropdown or function() end
 
 local WM_ICON_FONT = Font.new(
@@ -35,7 +37,7 @@ local function GetRealPing()
     return 0
 end
 
--- ====== КОЛОРПИКЕР ======
+-- ====== КОЛОРПИКЕР (ОТДЕЛЬНЫЙ GUI) ======
 local function createColorPicker(btn, currentColor, callback)
     local isOpen = false
     btn.MouseButton1Click:Connect(function()
@@ -183,6 +185,14 @@ Watermark.__index = Watermark
 function Watermark.new()
     local self = setmetatable({}, Watermark)
 
+    local function Animate(object, properties, duration)
+        duration = duration or 0.2
+        local info = TweenInfo.new(duration, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+        local tween = TweenService:Create(object, info, properties)
+        tween:Play()
+        return tween
+    end
+
     local gui = Instance.new("ScreenGui")
     gui.Name = "Neverlose_Watermarks"
     gui.Parent = CoreGui
@@ -199,6 +209,7 @@ function Watermark.new()
     self.visible = true
     self.position = "Right"
     self.misswareTextLabel = nil
+    self.combinedBlock = nil
 
     self.container = Instance.new("Frame")
     self.container.Name = "Watermarks_Container"
@@ -208,6 +219,7 @@ function Watermark.new()
     self.container.Size = UDim2.new(0, 0, 0, 38)
     self.container.BackgroundTransparency = 1
     self.container.BorderSizePixel = 0
+    self.container.ClipsDescendants = false
 
     self.layout = Instance.new("UIListLayout")
     self.layout.Parent = self.container
@@ -225,17 +237,18 @@ function Watermark.new()
         self.position = position or "Right"
         local wasVisible = self.container.Visible
         self.container.Visible = false
+        local offsetX, offsetY = 15, 15
         if position == "Left" then
             self.container.AnchorPoint = Vector2.new(0, 0)
             self.container.Position = UDim2.new(0, 170, 0, 15)
             self.layout.HorizontalAlignment = Enum.HorizontalAlignment.Left
         elseif position == "Center" then
             self.container.AnchorPoint = Vector2.new(0.5, 0)
-            self.container.Position = UDim2.new(0.5, 0, 0, 15)
+            self.container.Position = UDim2.new(0.5, 0, 0, offsetY)
             self.layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
         else
             self.container.AnchorPoint = Vector2.new(1, 0)
-            self.container.Position = UDim2.new(1, -15, 0, 15)
+            self.container.Position = UDim2.new(1, -offsetX, 0, offsetY)
             self.layout.HorizontalAlignment = Enum.HorizontalAlignment.Right
         end
         task.wait(0.05)
@@ -346,7 +359,7 @@ _G.createWatermarkCard = function(parent)
     card.BackgroundColor3 = Color3.fromRGB(20,20,20)
     card.BackgroundTransparency = 0
     card.BorderSizePixel = 0
-    card.Size = UDim2.new(0, 225, 0, 240) -- Увеличили высоту карточки
+    card.Size = UDim2.new(0, 225, 0, 150) -- Увеличили высоту карточки
     card.Parent = parent
     Instance.new("UICorner", card).CornerRadius = UDim.new(0, 8)
     local cs = Instance.new("UIStroke", card)
@@ -404,7 +417,7 @@ _G.createWatermarkCard = function(parent)
         if watermarkInstance then watermarkInstance:SetPosition(v) end
     end)
 
-    -- MISSWARE COLOR
+    -- MISSWARE COLOR (ВОТ ЕГО НЕ ХВАТАЛО)
     local colorRow = Instance.new("Frame")
     colorRow.Size = UDim2.new(1, 0, 0, 26)
     colorRow.BackgroundTransparency = 1
@@ -436,7 +449,6 @@ _G.createWatermarkCard = function(parent)
         end
     end)
 
-    -- ВОТ ЭТОТ КУСОК БЫЛ ПОТЕРЯН У ТЕБЯ
     toggle.MouseButton1Click:Connect(function()
         watermarkEnabled = not watermarkEnabled
         toggle.Text = watermarkEnabled and "ON" or "OFF"
