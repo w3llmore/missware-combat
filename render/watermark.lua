@@ -11,7 +11,6 @@ local Player = Players.LocalPlayer
 local MissWare = _G.MissWare or {}
 local ACCENT_COLORS = MissWare.ACCENT_COLORS or {Default = Color3.new(1,1,1)}
 local currentAccentColor = MissWare.currentAccentColor or "Default"
-local createSlider = MissWare.createSlider or function() end
 local createDropdown = MissWare.createDropdown or function() end
 
 local WM_ICON_FONT = Font.new(
@@ -36,7 +35,7 @@ local function GetRealPing()
     return 0
 end
 
--- ====== КОЛОРПИКЕР (ОТДЕЛЬНЫЙ GUI) ======
+-- ====== КОЛОРПИКЕР ======
 local function createColorPicker(btn, currentColor, callback)
     local isOpen = false
     btn.MouseButton1Click:Connect(function()
@@ -184,14 +183,6 @@ Watermark.__index = Watermark
 function Watermark.new()
     local self = setmetatable({}, Watermark)
 
-    local function Animate(object, properties, duration)
-        duration = duration or 0.2
-        local info = TweenInfo.new(duration, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-        local tween = TweenService:Create(object, info, properties)
-        tween:Play()
-        return tween
-    end
-
     local gui = Instance.new("ScreenGui")
     gui.Name = "Neverlose_Watermarks"
     gui.Parent = CoreGui
@@ -208,7 +199,6 @@ function Watermark.new()
     self.visible = true
     self.position = "Right"
     self.misswareTextLabel = nil
-    self.combinedBlock = nil
 
     self.container = Instance.new("Frame")
     self.container.Name = "Watermarks_Container"
@@ -218,7 +208,6 @@ function Watermark.new()
     self.container.Size = UDim2.new(0, 0, 0, 38)
     self.container.BackgroundTransparency = 1
     self.container.BorderSizePixel = 0
-    self.container.ClipsDescendants = false
 
     self.layout = Instance.new("UIListLayout")
     self.layout.Parent = self.container
@@ -236,18 +225,17 @@ function Watermark.new()
         self.position = position or "Right"
         local wasVisible = self.container.Visible
         self.container.Visible = false
-        local offsetX, offsetY = 15, 15
         if position == "Left" then
             self.container.AnchorPoint = Vector2.new(0, 0)
             self.container.Position = UDim2.new(0, 170, 0, 15)
             self.layout.HorizontalAlignment = Enum.HorizontalAlignment.Left
         elseif position == "Center" then
             self.container.AnchorPoint = Vector2.new(0.5, 0)
-            self.container.Position = UDim2.new(0.5, 0, 0, offsetY)
+            self.container.Position = UDim2.new(0.5, 0, 0, 15)
             self.layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
         else
             self.container.AnchorPoint = Vector2.new(1, 0)
-            self.container.Position = UDim2.new(1, -offsetX, 0, offsetY)
+            self.container.Position = UDim2.new(1, -15, 0, 15)
             self.layout.HorizontalAlignment = Enum.HorizontalAlignment.Right
         end
         task.wait(0.05)
@@ -358,7 +346,7 @@ _G.createWatermarkCard = function(parent)
     card.BackgroundColor3 = Color3.fromRGB(20,20,20)
     card.BackgroundTransparency = 0
     card.BorderSizePixel = 0
-    card.Size = UDim2.new(0, 225, 0, 240)
+    card.Size = UDim2.new(0, 225, 0, 240) -- Увеличили высоту карточки
     card.Parent = parent
     Instance.new("UICorner", card).CornerRadius = UDim.new(0, 8)
     local cs = Instance.new("UIStroke", card)
@@ -447,6 +435,55 @@ _G.createWatermarkCard = function(parent)
             watermarkInstance:UpdateMissWareColor(color)
         end
     end)
+
+    -- ВОТ ЭТОТ КУСОК БЫЛ ПОТЕРЯН У ТЕБЯ
+    toggle.MouseButton1Click:Connect(function()
+        watermarkEnabled = not watermarkEnabled
+        toggle.Text = watermarkEnabled and "ON" or "OFF"
+        toggle.BackgroundColor3 = watermarkEnabled and Color3.fromRGB(0,180,0) or Color3.fromRGB(70,70,80)
+
+        if watermarkEnabled then
+            watermarkInstance = Watermark.new()
+            watermarkInstance:SetPosition(currentPosition)
+            local combined = watermarkInstance:AddCombinedBlock({
+                { text = "FPS: 0", color = Color3.fromRGB(100, 255, 150) },
+                { text = "Ping: 0", color = Color3.fromRGB(255, 200, 100) },
+                { text = "MissWare", color = watermarkColor, isMissWare = true },
+            })
+            watermarkInstance:SetVisible(true)
+
+            local frameCount, lastTime = 0, tick()
+            local currentFPS, currentPing = 0, 0
+            local lastFPS, lastPing = -1, -1
+            local pingTimer = 0
+
+            currentPing = GetRealPing()
+            lastPing = currentPing
+            combined:SetElementText(2, "Ping: " .. currentPing)
+
+            fpsConn = RunService.Heartbeat:Connect(function(dt)
+                if not watermarkEnabled or not watermarkInstance then return end
+                frameCount = frameCount + 1
+                pingTimer = pingTimer + dt
+                local now = tick()
+                if now - lastTime >= 1 then
+                    currentFPS = frameCount
+                    frameCount = 0
+                    lastTime = now
+                end
+                if pingTimer >= 2 then
+                    pingTimer = 0
+                    currentPing = GetRealPing()
+                end
+                if currentFPS ~= lastFPS then
+                    lastFPS = currentFPS
+                    combined:SetElementText(1, "FPS: " .. currentFPS)
+                end
+                if currentPing ~= lastPing then
+                    lastPing = currentPing
+                    combined:SetElementText(2, "Ping: " .. currentPing)
+                end
+            end)
         else
             if fpsConn then fpsConn:Disconnect(); fpsConn = nil end
             if watermarkInstance then watermarkInstance:Destroy(); watermarkInstance = nil end
