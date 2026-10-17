@@ -1,5 +1,5 @@
 -- render/watermark.lua
--- MissWare Watermark Module (FPS, Ping, Brand) с цветовым пикером
+-- MissWare Watermark Module
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
