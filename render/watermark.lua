@@ -4,22 +4,14 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local CoreGui = game:GetService("CoreGui")
 local TweenService = game:GetService("TweenService")
-local WM_TextService = game:GetService("TextService")
+local TextService = game:GetService("TextService")
 local WM_Stats = game:GetService("Stats")
 local Player = Players.LocalPlayer
 
 local MissWare = _G.MissWare or {}
 local ACCENT_COLORS = MissWare.ACCENT_COLORS or {Default = Color3.new(1,1,1)}
 local currentAccentColor = MissWare.currentAccentColor or "Default"
-local createSlider = MissWare.createSlider or function() end
-local createCheckbox = MissWare.createCheckbox or function() end
 local createDropdown = MissWare.createDropdown or function() end
-
-local WM_ICON_FONT = Font.new(
-    "rbxasset://LuaPackages/Packages/_Index/BuilderIcons/BuilderIcons/BuilderIcons.json",
-    Enum.FontWeight.Bold,
-    Enum.FontStyle.Normal
-)
 
 local AllWatermarks = {}
 local _pingItem = nil
@@ -37,13 +29,12 @@ local function GetRealPing()
     return 0
 end
 
--- ====== КОЛОРПИКЕР (ОТДЕЛЬНЫЙ GUI) ======
+-- ====== КОЛОРПИКЕР (БЕЗ ИЗМЕНЕНИЙ) ======
 local function createColorPicker(btn, currentColor, callback)
     local isOpen = false
     btn.MouseButton1Click:Connect(function()
         if isOpen then return end
         isOpen = true
-
         if not ColorPickerGui then
             ColorPickerGui = Instance.new("ScreenGui")
             ColorPickerGui.Name = "WM_ColorPicker"
@@ -51,7 +42,6 @@ local function createColorPicker(btn, currentColor, callback)
             ColorPickerGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
             ColorPickerGui.Parent = CoreGui
         end
-
         local overlay = Instance.new("Frame")
         overlay.Size = UDim2.new(1, 0, 1, 0)
         overlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
@@ -59,7 +49,6 @@ local function createColorPicker(btn, currentColor, callback)
         overlay.BorderSizePixel = 0
         overlay.ZIndex = 999
         overlay.Parent = ColorPickerGui
-
         local popup = Instance.new("Frame")
         popup.Size = UDim2.new(0, 240, 0, 0)
         popup.Position = UDim2.new(0.5, -120, 0.5, -120)
@@ -69,12 +58,10 @@ local function createColorPicker(btn, currentColor, callback)
         popup.ZIndex = 1000
         popup.Parent = overlay
         Instance.new("UICorner", popup).CornerRadius = UDim.new(0, 12)
-
         local stroke = Instance.new("UIStroke", popup)
         stroke.Thickness = 1
         stroke.Color = Color3.fromRGB(60, 60, 75)
         stroke.Transparency = 1
-
         local title = Instance.new("TextLabel")
         title.Size = UDim2.new(1, -20, 0, 30)
         title.Position = UDim2.new(0, 10, 0, 8)
@@ -85,7 +72,6 @@ local function createColorPicker(btn, currentColor, callback)
         title.Font = Enum.Font.GothamBold
         title.TextXAlignment = Enum.TextXAlignment.Left
         title.Parent = popup
-
         local closeBtn = Instance.new("TextButton")
         closeBtn.Size = UDim2.new(0, 30, 0, 30)
         closeBtn.Position = UDim2.new(1, -30, 0, 8)
@@ -95,7 +81,6 @@ local function createColorPicker(btn, currentColor, callback)
         closeBtn.Font = Enum.Font.GothamBold
         closeBtn.TextSize = 16
         closeBtn.Parent = popup
-        
         local function closePopup()
             isOpen = false
             TweenService:Create(popup, TweenInfo.new(0.15, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
@@ -106,19 +91,16 @@ local function createColorPicker(btn, currentColor, callback)
             overlay:Destroy()
         end
         closeBtn.MouseButton1Click:Connect(closePopup)
-
-        local container = Instance.new("Frame")
-        container.Size = UDim2.new(1, -20, 0, 0)
-        container.Position = UDim2.new(0, 10, 0, 45)
-        container.BackgroundTransparency = 1
-        container.Parent = popup
-
+        local colorContainer = Instance.new("Frame")
+        colorContainer.Size = UDim2.new(1, -20, 0, 0)
+        colorContainer.Position = UDim2.new(0, 10, 0, 45)
+        colorContainer.BackgroundTransparency = 1
+        colorContainer.Parent = popup
         local grid = Instance.new("UIGridLayout")
         grid.CellSize = UDim2.new(0, 38, 0, 38)
         grid.CellPadding = UDim2.new(0, 6, 0, 6)
         grid.SortOrder = Enum.SortOrder.LayoutOrder
-        grid.Parent = container
-
+        grid.Parent = colorContainer
         local colorData = {
             Color3.fromRGB(0, 255, 0), Color3.fromRGB(255, 0, 0), Color3.fromRGB(0, 150, 255),
             Color3.fromRGB(255, 255, 0), Color3.fromRGB(255, 0, 255), Color3.fromRGB(255, 150, 0),
@@ -126,7 +108,6 @@ local function createColorPicker(btn, currentColor, callback)
             Color3.fromRGB(100, 200, 255), Color3.fromRGB(200, 255, 100), Color3.fromRGB(180, 130, 255),
             Color3.fromRGB(0, 0, 0), Color3.fromRGB(128, 128, 128), Color3.fromRGB(255, 200, 200)
         }
-
         for i, color in ipairs(colorData) do
             local cBtn = Instance.new("TextButton")
             cBtn.BackgroundColor3 = color
@@ -134,36 +115,30 @@ local function createColorPicker(btn, currentColor, callback)
             cBtn.AutoButtonColor = false
             cBtn.ZIndex = 1000
             cBtn.LayoutOrder = i
-            cBtn.Parent = container
+            cBtn.Parent = colorContainer
             Instance.new("UICorner", cBtn).CornerRadius = UDim.new(1, 0)
-            
             if color == currentColor then
                 local b = Instance.new("UIStroke", cBtn)
                 b.Thickness = 2
                 b.Color = Color3.fromRGB(255, 255, 255)
             end
-            
             cBtn.MouseButton1Click:Connect(function()
                 callback(color)
                 btn.BackgroundColor3 = color
                 closePopup()
             end)
         end
-
         local rows = math.ceil(#colorData / 5)
         local height = 45 + rows * 44 + 15
         popup.Size = UDim2.new(0, 240, 0, height)
-        container.Size = UDim2.new(1, -20, 0, rows * 44)
-
+        colorContainer.Size = UDim2.new(1, -20, 0, rows * 44)
         popup.BackgroundTransparency = 1
         popup.Size = UDim2.new(0, 0, 0, 0)
         stroke.Transparency = 1
-        
         TweenService:Create(popup, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
             Size = UDim2.new(0, 240, 0, height), BackgroundTransparency = 0
         }):Play()
         TweenService:Create(stroke, TweenInfo.new(0.3), {Transparency = 0}):Play()
-
         local function checkClick(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 then
                 local mp = UserInputService:GetMouseLocation()
@@ -178,20 +153,12 @@ local function createColorPicker(btn, currentColor, callback)
     end)
 end
 
--- ====== WATERMARK CLASS ======
+-- ====== WATERMARK ======
 local Watermark = {}
 Watermark.__index = Watermark
 
 function Watermark.new()
     local self = setmetatable({}, Watermark)
-
-    local function Animate(object, properties, duration)
-        duration = duration or 0.2
-        local info = TweenInfo.new(duration, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-        local tween = TweenService:Create(object, info, properties)
-        tween:Play()
-        return tween
-    end
 
     local gui = Instance.new("ScreenGui")
     gui.Name = "Neverlose_Watermarks"
@@ -209,17 +176,15 @@ function Watermark.new()
     self.visible = true
     self.position = "Right"
     self.misswareTextLabel = nil
-    self.combinedBlock = nil
 
     self.container = Instance.new("Frame")
     self.container.Name = "Watermarks_Container"
     self.container.Parent = gui
     self.container.AnchorPoint = Vector2.new(1, 0)
     self.container.Position = UDim2.new(1, -15, 0, 15)
-    self.container.Size = UDim2.new(0, 0, 0, 38)
+    self.container.Size = UDim2.new(0, 0, 0, 36) -- Фиксированная высота 36
     self.container.BackgroundTransparency = 1
     self.container.BorderSizePixel = 0
-    self.container.ClipsDescendants = false
 
     self.layout = Instance.new("UIListLayout")
     self.layout.Parent = self.container
@@ -230,30 +195,29 @@ function Watermark.new()
 
     self.layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
         local cw = self.layout.AbsoluteContentSize.X
-        if cw > 0 then self.container.Size = UDim2.new(0, cw, 0, 38) end
+        if cw > 0 then self.container.Size = UDim2.new(0, cw, 0, 36) end
     end)
 
     function self:SetPosition(position)
         self.position = position or "Right"
         local wasVisible = self.container.Visible
         self.container.Visible = false
-        local offsetX, offsetY = 15, 15
         if position == "Left" then
             self.container.AnchorPoint = Vector2.new(0, 0)
             self.container.Position = UDim2.new(0, 170, 0, 15)
             self.layout.HorizontalAlignment = Enum.HorizontalAlignment.Left
         elseif position == "Center" then
             self.container.AnchorPoint = Vector2.new(0.5, 0)
-            self.container.Position = UDim2.new(0.5, 0, 0, offsetY)
+            self.container.Position = UDim2.new(0.5, 0, 0, 15)
             self.layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
         else
             self.container.AnchorPoint = Vector2.new(1, 0)
-            self.container.Position = UDim2.new(1, -offsetX, 0, offsetY)
+            self.container.Position = UDim2.new(1, -15, 0, 15)
             self.layout.HorizontalAlignment = Enum.HorizontalAlignment.Right
         end
         task.wait(0.05)
         local cw = self.layout.AbsoluteContentSize.X
-        if cw > 0 then self.container.Size = UDim2.new(0, cw, 0, 38) end
+        if cw > 0 then self.container.Size = UDim2.new(0, cw, 0, 36) end
         if wasVisible then self.container.Visible = true end
     end
 
@@ -261,77 +225,121 @@ function Watermark.new()
         if self.misswareTextLabel then self.misswareTextLabel.TextColor3 = color end
     end
 
+    -- РУЧНАЯ РАСКЛАДКА (БЕЗ UIListLayout внутри)
     function self:AddCombinedBlock(elements)
         local block = {}
+        
+        local PAD_X = 14
+        local ICON_SIZE = 16
+        local GAP = 6
+        local HEIGHT = 32
+        local TEXT_SIZE = 13
+        
         local oval = Instance.new("Frame")
         oval.Parent = self.container
         oval.BackgroundColor3 = Color3.fromRGB(8, 8, 13)
         oval.BackgroundTransparency = 0.15
         oval.BorderSizePixel = 0
-        oval.Size = UDim2.new(0, 0, 0, 36)
+        oval.Size = UDim2.new(0, 0, 0, HEIGHT)
         oval.ZIndex = 999
         oval.LayoutOrder = #self.blocks + 1
-        Instance.new("UICorner", oval).CornerRadius = UDim.new(0, 10)
         
+        Instance.new("UICorner", oval).CornerRadius = UDim.new(0, 10)
         local outline = Instance.new("UIStroke", oval)
         outline.Thickness = 2; outline.Transparency = 0.8; outline.Color = Color3.fromRGB(0, 0, 0)
 
-        local elLayout = Instance.new("UIListLayout")
-        elLayout.FillDirection = Enum.FillDirection.Horizontal
-        elLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-        elLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-        elLayout.SortOrder = Enum.SortOrder.LayoutOrder
-        elLayout.Parent = oval
+        local elementsData = {}
+        local totalWidth = 0
 
-        local elementsList = {}
         for i, el in ipairs(elements) do
             local section = Instance.new("Frame")
             section.BackgroundTransparency = 1
             section.Size = UDim2.new(0, 0, 1, 0)
-            section.LayoutOrder = i
+            section.Position = UDim2.new(0, totalWidth, 0, 0)
+            section.ZIndex = 1000
             section.Parent = oval
-            
-            local sLayout = Instance.new("UIListLayout")
-            sLayout.FillDirection = Enum.FillDirection.Horizontal
-            sLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-            sLayout.SortOrder = Enum.SortOrder.LayoutOrder
-            sLayout.Padding = UDim.new(0, 8)
-            sLayout.Parent = section
-            
+
+            local textStr = tostring(el.text or "")
+            local tSize = TextService:GetTextSize(textStr, TEXT_SIZE, Enum.Font.GothamBold, Vector2.new(10000, 10000))
+            local textWidth = math.ceil(tSize.X)
+
+            local iconLabel = nil
+            if el.icon then
+                iconLabel = Instance.new("TextLabel")
+                iconLabel.Parent = section
+                iconLabel.BackgroundTransparency = 1
+                iconLabel.Size = UDim2.new(0, ICON_SIZE, 0, ICON_SIZE)
+                iconLabel.Position = UDim2.new(0, 0, 0.5, -ICON_SIZE/2)
+                iconLabel.ZIndex = 1001
+                iconLabel.FontFace = Font.new("rbxasset://LuaPackages/Packages/_Index/BuilderIcons/BuilderIcons/BuilderIcons.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+                iconLabel.Text = el.icon
+                iconLabel.TextColor3 = el.color or Color3.fromRGB(255,255,255)
+                iconLabel.TextSize = 14
+                iconLabel.TextTransparency = 0.15
+            end
+
             local tLabel = Instance.new("TextLabel")
             tLabel.Parent = section
             tLabel.BackgroundTransparency = 1
-            tLabel.Size = UDim2.new(0, 60, 1, 0)
+            tLabel.Size = UDim2.new(0, textWidth, 1, 0)
+            tLabel.Position = UDim2.new(0, el.icon and (ICON_SIZE + GAP) or 0, 0, 0)
             tLabel.Font = Enum.Font.GothamBold
-            tLabel.Text = el.text
-            tLabel.TextColor3 = el.color
-            tLabel.TextSize = 13
+            tLabel.Text = textStr
+            tLabel.TextColor3 = el.color or Color3.fromRGB(255,255,255)
+            tLabel.TextSize = TEXT_SIZE
             tLabel.TextXAlignment = Enum.TextXAlignment.Left
-            tLabel.AutomaticSize = Enum.AutomaticSize.X
+            tLabel.ZIndex = 1001
             
             if el.isMissWare then self.misswareTextLabel = tLabel end
-            elementsList[i] = { Text = tLabel, Data = el, Section = section }
-        end
-        
-        local function relayout()
-            for _, fr in ipairs(elementsList) do
-                fr.Section.Size = UDim2.new(0, fr.Text.AbsoluteSize.X + 24, 1, 0)
-            end
-            oval.AutomaticSize = Enum.AutomaticSize.X
-        end
-        relayout()
 
-        function block:SetElementText(index, text)
-            local fr = elementsList[index]
-            if fr and fr.Text.Text ~= text then
-                fr.Text.Text = text
-                relayout()
+            local secWidth = (el.icon and (ICON_SIZE + GAP) or 0) + textWidth
+            section.Size = UDim2.new(0, secWidth, 1, 0)
+
+            elementsData[i] = { Section = section, Text = tLabel, Width = textWidth, Data = el }
+            totalWidth = totalWidth + secWidth + (i < #elements and 12 or 0)
+
+            if i < #elements then
+                local divider = Instance.new("Frame")
+                divider.Size = UDim2.new(0, 1, 0, 14)
+                divider.Position = UDim2.new(0, totalWidth - 12 + 5, 0.5, -7)
+                divider.BackgroundColor3 = Color3.fromRGB(60, 60, 75)
+                divider.BackgroundTransparency = 0.5
+                divider.BorderSizePixel = 0
+                divider.ZIndex = 1000
+                divider.Parent = oval
+            end
+        end
+
+        oval.Size = UDim2.new(0, totalWidth + PAD_X * 2, 0, HEIGHT)
+
+        function block:SetElementText(index, newText)
+            local fr = elementsData[index]
+            if not fr then return end
+            local t = tostring(newText)
+            if fr.Text.Text == t then return end
+            fr.Text.Text = t
+            
+            local tSize = TextService:GetTextSize(t, TEXT_SIZE, Enum.Font.GothamBold, Vector2.new(10000, 10000))
+            local newWidth = math.ceil(tSize.X)
+            
+            if newWidth ~= fr.Width then
+                fr.Width = newWidth
+                fr.Text.Size = UDim2.new(0, newWidth, 1, 0)
+                
+                -- Пересчет всей раскладки (быстро, т.к. вызывается редко)
+                local curX = 0
+                for i = 1, #elementsData do
+                    local el = elementsData[i]
+                    local secWidth = (el.Data.icon and (ICON_SIZE + GAP) or 0) + el.Width
+                    el.Section.Size = UDim2.new(0, secWidth, 1, 0)
+                    el.Section.Position = UDim2.new(0, curX, 0, 0)
+                    curX = curX + secWidth + (i < #elementsData and 12 or 0)
+                end
+                oval.Size = UDim2.new(0, curX + PAD_X * 2, 0, HEIGHT)
             end
         end
         
-        function block:SetVisible(v)
-            oval.Visible = v
-        end
+        function block:SetVisible(v) oval.Visible = v end
 
         table.insert(self.blocks, block)
         return block
@@ -343,9 +351,7 @@ function Watermark.new()
     end
 
     function self:Destroy()
-        for i, wm in ipairs(AllWatermarks) do
-            if wm == self then table.remove(AllWatermarks, i); break end
-        end
+        for i, wm in ipairs(AllWatermarks) do if wm == self then table.remove(AllWatermarks, i); break end end
         self.gui:Destroy()
     end
 
@@ -359,12 +365,11 @@ _G.createWatermarkCard = function(parent)
     card.BackgroundColor3 = Color3.fromRGB(20,20,20)
     card.BackgroundTransparency = 0
     card.BorderSizePixel = 0
-    card.Size = UDim2.new(0, 225, 0, 150) -- Увеличили высоту карточки
+    card.Size = UDim2.new(0, 225, 0, 150)
     card.Parent = parent
     Instance.new("UICorner", card).CornerRadius = UDim.new(0, 8)
     local cs = Instance.new("UIStroke", card)
-    cs.Thickness = 1
-    cs.Color = Color3.fromRGB(45,45,55)
+    cs.Thickness = 1; cs.Color = Color3.fromRGB(45,45,55)
 
     local header = Instance.new("Frame")
     header.Size = UDim2.new(1, -16, 0, 36)
@@ -386,7 +391,6 @@ _G.createWatermarkCard = function(parent)
     toggle.Size = UDim2.new(0, 44, 0, 22)
     toggle.Position = UDim2.new(1, -100, 0, 7)
     toggle.BackgroundColor3 = Color3.fromRGB(70,70,80)
-    toggle.BackgroundTransparency = 0
     toggle.Text = "OFF"
     toggle.TextColor3 = Color3.fromRGB(255,255,255)
     toggle.Font = Enum.Font.GothamBold
@@ -417,7 +421,7 @@ _G.createWatermarkCard = function(parent)
         if watermarkInstance then watermarkInstance:SetPosition(v) end
     end)
 
-    -- MISSWARE COLOR (ВОТ ЕГО НЕ ХВАТАЛО)
+    -- MISSWARE COLOR
     local colorRow = Instance.new("Frame")
     colorRow.Size = UDim2.new(1, 0, 0, 26)
     colorRow.BackgroundTransparency = 1
@@ -458,8 +462,8 @@ _G.createWatermarkCard = function(parent)
             watermarkInstance = Watermark.new()
             watermarkInstance:SetPosition(currentPosition)
             local combined = watermarkInstance:AddCombinedBlock({
-                { text = "FPS: 0", color = Color3.fromRGB(100, 255, 150) },
-                { text = "Ping: 0", color = Color3.fromRGB(255, 200, 100) },
+                { icon = "clock", text = "FPS: 0", color = Color3.fromRGB(100, 255, 150) },
+                { icon = "signal-exclamation", text = "Ping: 0", color = Color3.fromRGB(255, 200, 100) },
                 { text = "MissWare", color = watermarkColor, isMissWare = true },
             })
             watermarkInstance:SetVisible(true)
