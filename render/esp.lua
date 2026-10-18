@@ -22,12 +22,12 @@ local ESPSettings = {
     Enabled = false, Mode = "Classic",
     ChamsVisibleColor = Color3.fromRGB(0, 255, 0), ChamsHiddenColor = Color3.fromRGB(255, 0, 0),
     HealthBar = false, NameESP = false, NameColor = Color3.fromRGB(255, 255, 255),
-    TeamCheck = false, MaxDistance = 1000
+    TeamCheck = false, MaxDistance = 2000
 }
 
 local ESP = {
-    conn = nil, activeHighlights = {}, activeNames = {}, activeHealthBars = {},
-    visibilityCache = {}, frameCounter = 0, newEspEnabled = false, espData = {}, toggle = nil,
+    conn = nil, activeDrawings = {},
+    visibilityCache = {}, frameCounter = 0, toggle = nil,
 }
 
 -- ====== КОЛОРПИКЕР ======
@@ -155,11 +155,9 @@ local function createColorPicker(btn, currentColor, callback)
     end)
 end
 
--- ====== БАЗОВЫЕ ФУНКЦИИ ======
+-- ====== БАЗА ======
 local function isRealPlayer(plr)
-    if not plr or typeof(plr) ~= "Instance" then return false end
-    if not plr:IsA("Player") then return false end
-    if not plr.Parent then return false end
+    if not plr or typeof(plr) ~= "Instance" or not plr:IsA("Player") or not plr.Parent then return false end
     if plr == Player then return false end
     return true
 end
@@ -168,14 +166,6 @@ local function isPlayerAlive(plr)
     if not isRealPlayer(plr) or not plr.Character then return false end
     local hum = plr.Character:FindFirstChildOfClass("Humanoid")
     return hum and hum.Health > 0
-end
-
-local function isPlayerAlive2(plr)
-    local char = plr.Character
-    if not char or not char.Parent then return false end
-    local humanoid = char:FindFirstChild("Humanoid")
-    if not humanoid or humanoid.Health <= 0 then return false end
-    return char:FindFirstChild("Head") ~= nil
 end
 
 local function isSameTeam(plr)
@@ -191,109 +181,7 @@ local function espIsTeammate(plr)
     return isSameTeam(plr)
 end
 
--- ====== OPERATION 1 (2D БОКСЫ) ======
-local function createNewESP(plr)
-    if not isRealPlayer(plr) or ESP.espData[plr] or not Drawing then return end
-    local box = Drawing.new("Square"); box.Thickness = 2; box.Filled = false; box.Color = ESPSettings.ChamsVisibleColor; box.Visible = false
-    local tracer = Drawing.new("Line"); tracer.Thickness = 1.5; tracer.Color = ESPSettings.ChamsHiddenColor; tracer.Visible = false
-    local nt = Drawing.new("Text"); nt.Size = 14; nt.Center = true; nt.Outline = true; nt.Font = 2; nt.Color = ESPSettings.NameColor; nt.Visible = false
-    ESP.espData[plr] = { Player = plr, Box = box, Tracer = tracer, Name = nt }
-end
-
-local function removeNewESP(plr)
-    local d = ESP.espData[plr]
-    if d then
-        if d.Box then d.Box:Remove() end
-        if d.Tracer then d.Tracer:Remove() end
-        if d.Name then d.Name:Remove() end
-        ESP.espData[plr] = nil
-    end
-end
-
-local function setNewESPVisible(v)
-    for _, d in pairs(ESP.espData) do
-        if d.Box then d.Box.Visible = v end
-        if d.Tracer then d.Tracer.Visible = v end
-        if d.Name then d.Name.Visible = v end
-    end
-end
-
-local function getPlayerParts(plr)
-    if not isRealPlayer(plr) or not plr.Character then return {} end
-    local parts = {}
-    for _, obj in ipairs(plr.Character:GetDescendants()) do
-        if obj:IsA("BasePart") then table.insert(parts, obj) end
-    end
-    return parts
-end
-
-local function updateNewESP()
-    if not ESP.newEspEnabled or not ESPSettings.Enabled or ESPSettings.Mode ~= "Operation 1" then
-        setNewESPVisible(false)
-        return
-    end
-    local camera = Camera; if not camera then return end
-    local vs = camera.ViewportSize
-    
-    for plr, data in pairs(ESP.espData) do
-        if not isRealPlayer(plr) or not isPlayerAlive(plr) or espIsTeammate(plr) then
-            data.Box.Visible = false; data.Tracer.Visible = false; data.Name.Visible = false
-        else
-            local parts = getPlayerParts(plr)
-            if #parts == 0 then data.Box.Visible = false; data.Tracer.Visible = false; data.Name.Visible = false
-            else
-                local minX, minY, minZ = math.huge, math.huge, math.huge
-                local maxX, maxY, maxZ = -math.huge, -math.huge, -math.huge
-                for _, part in ipairs(parts) do
-                    local pos, size = part.Position, part.Size / 2
-                    local cs = {
-                        Vector3.new(pos.X-size.X,pos.Y-size.Y,pos.Z-size.Z), Vector3.new(pos.X+size.X,pos.Y-size.Y,pos.Z-size.Z),
-                        Vector3.new(pos.X-size.X,pos.Y+size.Y,pos.Z-size.Z), Vector3.new(pos.X+size.X,pos.Y+size.Y,pos.Z-size.Z),
-                        Vector3.new(pos.X-size.X,pos.Y-size.Y,pos.Z+size.Z), Vector3.new(pos.X+size.X,pos.Y-size.Y,pos.Z+size.Z),
-                        Vector3.new(pos.X-size.X,pos.Y+size.Y,pos.Z+size.Z), Vector3.new(pos.X+size.X,pos.Y+size.Y,pos.Z+size.Z),
-                    }
-                    for _, c in ipairs(cs) do
-                        if c.X<minX then minX=c.X end; if c.Y<minY then minY=c.Y end; if c.Z<minZ then minZ=c.Z end
-                        if c.X>maxX then maxX=c.X end; if c.Y>maxY then maxY=c.Y end; if c.Z>maxZ then maxZ=c.Z end
-                    end
-                end
-                local cp = Vector3.new((minX+maxX)/2,(minY+maxY)/2,(minZ+maxZ)/2)
-                
-                local dist = (cp - camera.CFrame.Position).Magnitude
-                if dist > ESPSettings.MaxDistance then
-                    data.Box.Visible = false; data.Tracer.Visible = false; data.Name.Visible = false
-                    continue
-                end
-                
-                local c3 = {Vector3.new(minX,minY,minZ),Vector3.new(maxX,minY,minZ),Vector3.new(minX,maxY,minZ),Vector3.new(maxX,maxY,minZ),
-                            Vector3.new(minX,minY,maxZ),Vector3.new(maxX,minY,maxZ),Vector3.new(minX,maxY,maxZ),Vector3.new(maxX,maxY,maxZ)}
-                local sMinX,sMinY,sMaxX,sMaxY = math.huge,math.huge,-math.huge,-math.huge
-                for _, p in ipairs(c3) do
-                    local sp = camera:WorldToViewportPoint(p)
-                    if sp.X<sMinX then sMinX=sp.X end; if sp.Y<sMinY then sMinY=sp.Y end
-                    if sp.X>sMaxX then sMaxX=sp.X end; if sp.Y>sMaxY then sMaxY=sp.Y end
-                end
-                local bw,bh = sMaxX-sMinX, sMaxY-sMinY
-                
-                if bw<5 or bh<5 then
-                    data.Box.Visible = false
-                else
-                    data.Box.Size=Vector2.new(bw,bh); data.Box.Position=Vector2.new(sMinX,sMinY); data.Box.Visible=true
-                end
-                
-                local cs3 = camera:WorldToViewportPoint(cp)
-                if cs3 then
-                    data.Tracer.From=Vector2.new(vs.X/2,vs.Y); data.Tracer.To=Vector2.new(cs3.X,cs3.Y); data.Tracer.Visible=true
-                    data.Name.Text=plr.Name.." ["..math.floor(dist).."m]"; data.Name.Position=Vector2.new(cs3.X,sMaxY+15); data.Name.Visible=true
-                else 
-                    data.Tracer.Visible=false; data.Name.Visible=false 
-                end
-            end
-        end
-    end
-end
-
--- ====== CLASSIC & COUNTERBLOX ======
+-- ====== ВИДИМОСТЬ (КЭШ) ======
 local function isTargetVisible(char, now)
     if not char or not char.Parent then return true end
     local head = char:FindFirstChild("Head")
@@ -302,8 +190,7 @@ local function isTargetVisible(char, now)
     local cached = ESP.visibilityCache[char]
     if cached and now - cached.time < 0.15 then return cached.visible end
     
-    local camera = Camera
-    if not camera then return true end
+    local camera = Camera; if not camera then return true end
     local origin = camera.CFrame.Position
     local ignoreList = {char}
     if Player.Character then table.insert(ignoreList, Player.Character) end
@@ -329,155 +216,124 @@ local function isTargetVisible(char, now)
     return visible
 end
 
-local function updateClassicESP()
+-- ====== РИСОВАНИЕ (2D) ======
+local function createDrawing(plr)
+    if not Drawing then return end
+    ESP.activeDrawings[plr] = {
+        box = Drawing.new("Square"),
+        name = Drawing.new("Text"),
+        health = Drawing.new("Text"),
+        heart = Drawing.new("Text"),
+    }
+    local d = ESP.activeDrawings[plr]
+    d.box.Thickness = 1; d.box.Filled = false; d.box.Visible = false
+    d.name.Size = 13; d.name.Center = true; d.name.Outline = true; d.name.Font = 2; d.name.Visible = false
+    d.health.Size = 16; d.health.Center = true; d.health.Outline = true; d.health.Font = 3; d.health.Visible = false
+    d.heart.Size = 14; d.heart.Center = true; d.heart.Outline = true; d.heart.Font = 3; d.heart.Text = "♥"; d.heart.Visible = false
+end
+
+local function removeDrawing(plr)
+    local d = ESP.activeDrawings[plr]
+    if d then
+        if d.box then d.box:Remove() end
+        if d.name then d.name:Remove() end
+        if d.health then d.health:Remove() end
+        if d.heart then d.heart:Remove() end
+        ESP.activeDrawings[plr] = nil
+    end
+end
+
+local function updateDrawingESP()
+    if not Drawing then return end
     local now = tick()
     local camera = Camera
     if not camera then return end
+    local vs = camera.ViewportSize
     local camPos = camera.CFrame.Position
     
-    for char, hl in pairs(ESP.activeHighlights) do
-        if not char or not char.Parent then
-            pcall(function() hl:Destroy() end)
-            ESP.activeHighlights[char] = nil
-        end
-    end
-    
     for _, plr in ipairs(Players:GetPlayers()) do
-        if plr == Player then continue end
-        if espIsTeammate(plr) then
-            local char = plr.Character
-            if char and ESP.activeHighlights[char] then
-                pcall(function() ESP.activeHighlights[char]:Destroy() end)
-                ESP.activeHighlights[char] = nil
-            end
-            if ESP.activeNames[plr] then pcall(function() ESP.activeNames[plr]:Remove() end); ESP.activeNames[plr] = nil end
-            if ESP.activeHealthBars[plr] then
-                local d = ESP.activeHealthBars[plr]
-                pcall(function() d.Text:Remove() end)
-                pcall(function() d.Heart:Remove() end)
-                ESP.activeHealthBars[plr] = nil
-            end
-            continue
-        end
-        if not isPlayerAlive2(plr) then
-            local char = plr.Character
-            if char and ESP.activeHighlights[char] then ESP.activeHighlights[char].Enabled = false end
-            if ESP.activeNames[plr] then ESP.activeNames[plr].Visible = false end
-            if ESP.activeHealthBars[plr] then
-                ESP.activeHealthBars[plr].Text.Visible = false
-                ESP.activeHealthBars[plr].Heart.Visible = false
-            end
+        if not isRealPlayer(plr) then continue end
+        
+        if not ESP.activeDrawings[plr] then createDrawing(plr) end
+        local d = ESP.activeDrawings[plr]
+        
+        if not isPlayerAlive(plr) or espIsTeammate(plr) then
+            d.box.Visible = false; d.name.Visible = false; d.health.Visible = false; d.heart.Visible = false
             continue
         end
         
         local char = plr.Character
         local head = char:FindFirstChild("Head")
-        if not head then continue end
+        local root = char:FindFirstChild("HumanoidRootPart")
+        if not head or not root then continue end
         
         local dist = (camPos - head.Position).Magnitude
-        local inRange = dist <= ESPSettings.MaxDistance
-        
-        local hl = ESP.activeHighlights[char]
-        if not hl then
-            hl = Instance.new("Highlight")
-            hl.Parent = char
-            hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-            hl.OutlineTransparency = 1
-            hl.FillTransparency = 0.3
-            ESP.activeHighlights[char] = hl
+        if dist > ESPSettings.MaxDistance then
+            d.box.Visible = false; d.name.Visible = false; d.health.Visible = false; d.heart.Visible = false
+            continue
         end
         
-        if not inRange then
-            if hl.Enabled then hl.Enabled = false end
-        else
-            local vis = isTargetVisible(char, now)
-            local newColor = vis and ESPSettings.ChamsVisibleColor or ESPSettings.ChamsHiddenColor
-            if hl.FillColor ~= newColor then hl.FillColor = newColor end
-            if not hl.Enabled then hl.Enabled = true end
-        end
+        -- 2D бокс (по голове и root)
+        local headScreen, headOn = camera:WorldToViewportPoint(head.Position + Vector3.new(0, 0.5, 0))
+        local rootScreen, rootOn = camera:WorldToViewportPoint(root.Position - Vector3.new(0, 2.5, 0))
         
-        if ESPSettings.NameESP and inRange then
-            local sp, on = camera:WorldToViewportPoint(head.Position + Vector3.new(0, 2, 0))
-            if on and sp.Z > 0 then
-                local nt = ESP.activeNames[plr]
-                if not nt then
-                    nt = Drawing.new("Text")
-                    nt.Size = 13; nt.Center = true; nt.Outline = true; nt.OutlineColor = Color3.fromRGB(0,0,0)
-                    ESP.activeNames[plr] = nt
-                end
-                if nt.Text ~= plr.Name then nt.Text = plr.Name end
-                if nt.Color ~= ESPSettings.NameColor then nt.Color = ESPSettings.NameColor end
-                nt.Position = Vector2.new(sp.X, sp.Y)
-                if not nt.Visible then nt.Visible = true end
+        if headOn and rootOn and headScreen.Z > 0 and rootScreen.Z > 0 then
+            local h = math.abs(rootScreen.Y - headScreen.Y)
+            local w = h * 0.6
+            d.box.Size = Vector2.new(w, h)
+            d.box.Position = Vector2.new(headScreen.X - w/2, headScreen.Y)
+            
+            local isVis = isTargetVisible(char, now)
+            d.box.Color = isVis and ESPSettings.ChamsVisibleColor or ESPSettings.ChamsHiddenColor
+            d.box.Visible = true
+            
+            -- Имя
+            if ESPSettings.NameESP then
+                d.name.Text = plr.Name .. " [" .. math.floor(dist) .. "m]"
+                d.name.Position = Vector2.new(headScreen.X, headScreen.Y - 16)
+                d.name.Color = ESPSettings.NameColor
+                d.name.Visible = true
             else
-                if ESP.activeNames[plr] then ESP.activeNames[plr].Visible = false end
+                d.name.Visible = false
             end
-        elseif ESP.activeNames[plr] then
-            ESP.activeNames[plr].Visible = false
-        end
-        
-        if ESPSettings.HealthBar and inRange then
-            local hum = char:FindFirstChild("Humanoid")
-            if hum and hum.Health > 0 then
-                local sp, on = camera:WorldToViewportPoint(head.Position + Vector3.new(0, 2, 0))
-                if on and sp.Z > 0 then
-                    local data = ESP.activeHealthBars[plr]
-                    if not data then
-                        local text = Drawing.new("Text"); text.Size = 16; text.Center = true; text.Outline = true; text.OutlineColor = Color3.fromRGB(0,0,0); text.Font = 3; text.Color = Color3.fromRGB(255,255,255)
-                        local heart = Drawing.new("Text"); heart.Size = 14; heart.Center = true; heart.Outline = true; heart.OutlineColor = Color3.fromRGB(0,0,0); heart.Font = 3; heart.Color = Color3.fromRGB(255,60,60); heart.Text = "♥"
-                        data = {Text=text, Heart=heart}
-                        ESP.activeHealthBars[plr] = data
-                    end
+            
+            -- Health
+            if ESPSettings.HealthBar then
+                local hum = char:FindFirstChild("Humanoid")
+                if hum then
                     local hp = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
-                    local color = hp > 0.5 and Color3.fromRGB(0,255,120) or (hp > 0.3 and Color3.fromRGB(255,220,0) or Color3.fromRGB(255,60,60))
-                    data.Text.Text = tostring(math.floor(hum.Health)); data.Text.Color = color
-                    data.Text.Position = Vector2.new(sp.X + 14, sp.Y); data.Text.Visible = true
-                    data.Heart.Position = Vector2.new(sp.X - 14, sp.Y); data.Heart.Visible = true
-                else
-                    if ESP.activeHealthBars[plr] then
-                        ESP.activeHealthBars[plr].Text.Visible = false; ESP.activeHealthBars[plr].Heart.Visible = false
-                    end
+                    d.health.Text = tostring(math.floor(hum.Health))
+                    d.health.Position = Vector2.new(headScreen.X + 20, headScreen.Y + h/2)
+                    d.health.Color = hp > 0.5 and Color3.fromRGB(0,255,120) or (hp > 0.3 and Color3.fromRGB(255,220,0) or Color3.fromRGB(255,60,60))
+                    d.health.Visible = true
+                    d.heart.Position = Vector2.new(headScreen.X - 20, headScreen.Y + h/2)
+                    d.heart.Visible = true
                 end
+            else
+                d.health.Visible = false; d.heart.Visible = false
             end
-        elseif ESP.activeHealthBars[plr] then
-            ESP.activeHealthBars[plr].Text.Visible = false; ESP.activeHealthBars[plr].Heart.Visible = false
+        else
+            d.box.Visible = false; d.name.Visible = false; d.health.Visible = false; d.heart.Visible = false
         end
     end
 end
 
 local function clearAllESP()
-    for _, hl in pairs(ESP.activeHighlights) do pcall(function() hl:Destroy() end) end
-    ESP.activeHighlights = {}
-    for _, n in pairs(ESP.activeNames) do pcall(function() n:Remove() end) end
-    ESP.activeNames = {}
-    for _, d in pairs(ESP.activeHealthBars) do pcall(function() d.Text:Remove() end); pcall(function() d.Heart:Remove() end) end
-    ESP.activeHealthBars = {}
+    for plr, _ in pairs(ESP.activeDrawings) do removeDrawing(plr) end
+    ESP.activeDrawings = {}
     ESP.visibilityCache = {}
-    for plr, d in pairs(ESP.espData) do if d.Box then d.Box:Remove() end; if d.Tracer then d.Tracer:Remove() end; if d.Name then d.Name:Remove() end end
-    ESP.espData = {}
 end
 
 local function updateESP()
     if not ESPSettings.Enabled then
-        clearAllESP()
-        ESP.newEspEnabled = false
+        if next(ESP.activeDrawings) then clearAllESP() end
         return
     end
     ESP.frameCounter = ESP.frameCounter + 1
     
-    -- Оптимизация: 30 FPS для Classic/CounterBlox, 20 FPS для Operation 1
-    if ESPSettings.Mode == "Operation 1" then
-        if ESP.frameCounter % 3 == 0 then
-            if not ESP.newEspEnabled then
-                ESP.newEspEnabled = true
-                for _, plr in ipairs(Players:GetPlayers()) do if isRealPlayer(plr) then createNewESP(plr) end end
-            end
-            updateNewESP()
-        end
-    else
-        if ESP.frameCounter % 2 == 0 then
-            updateClassicESP()
-        end
+    -- Оптимизация: 30 FPS (каждый 2-й кадр)
+    if ESP.frameCounter % 2 == 0 then
+        updateDrawingESP()
     end
 end
 
@@ -491,8 +347,7 @@ function _G.stopESP()
     clearAllESP()
 end
 
-Players.PlayerAdded:Connect(function(plr) if isRealPlayer(plr) and ESPSettings.Enabled and ESPSettings.Mode == "Operation 1" then createNewESP(plr) end end)
-Players.PlayerRemoving:Connect(function(plr) removeNewESP(plr) end)
+Players.PlayerRemoving:Connect(function(plr) removeDrawing(plr) end)
 
 -- ====== CARD ======
 _G.createESPCard = function(parent)
