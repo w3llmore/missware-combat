@@ -220,7 +220,9 @@ _G.MissWare.CreateAimbotUI = function(parentFrame)
     }, parentFrame)
     corner(card, 10)
     local cardStroke = stroke(card, CFG.Accent, 1, 0.4)
+    if _G.MissWare.GlobalColorElements then
     table.insert(_G.MissWare.GlobalColorElements, { obj = cardStroke, prop = "Color", base = "Accent" })
+end
     
     local title = new("TextLabel", {
         Size = UDim2.new(1, -20, 0, 30),
