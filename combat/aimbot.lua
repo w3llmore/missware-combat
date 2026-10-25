@@ -1,44 +1,30 @@
---[[
-    MissWare Combat — Aimbot (v2)
-    Нативно использует UI API + configKey
-]]
-
+-- combat/aimbot.lua
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
-local Player = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
+local Player = Players.LocalPlayer
 local Drawing = Drawing or nil
 
-local UI = _G.MissWare and _G.MissWare.UI
-if not UI then warn("[MissWare Aimbot] UI API not found") return end
-local new, corner, stroke, gradient = UI.New, UI.Corner, UI.Stroke, UI.Gradient
-local CFG = UI.CFG
+local UI = _G.MissWare.UI
+if not UI or not UI.CFG then return warn("UI functions or CFG not found!") end
 
--- ========== SETTINGS ==========
-local AimbotSettings = {
-    Enabled    = false,
-    AimPart    = "Head",
-    AimMode    = "Classic",
-    FOV        = 45,
-    Smoothness = 0.3,
-    SilentAim  = false,
-    AutoFire   = false,
-    AutoStop   = false,
-    MaxDistance = 400,
-    AutoFireDelay = 0.05,
+local Settings = {
+    Enabled = false, AimPart = "Head", AimMode = "Classic", FOV = 10,
+    Smoothness = 0.3, SilentAim = false, AutoFire = false, AutoStop = false,
+    MaxDistance = 400, AutoFireDelay = 0.05
 }
+_G.MissWare.Settings.Aimbot = Settings
 
--- ========== LOGIC ==========
-local fovCircle, aimbotConnection, lastFireTime = nil, nil, 0
-local currentTarget, currentTargetPlayer = nil, nil
+local AB = { fovCircle = nil, conn = nil, lastFire = 0, target = nil, targetPlr = nil }
 
 local function isPlayerAlive(plr)
     if not plr then return false end
     local char = plr.Character
     if not char or not char.Parent then return false end
     local humanoid = char:FindFirstChild("Humanoid")
-    return humanoid and humanoid.Health > 0
+    if not humanoid or humanoid.Health <= 0 then return false end
+    return true
 end
 
 local function isTeammate(plr)
@@ -59,156 +45,167 @@ end
 
 local function getTargetPart(char)
     if not char then return nil end
-    if AimbotSettings.AimPart == "Head" then
+    local aimPart = Settings.AimPart or "Head"
+    if aimPart == "Head" then
         local head = char:FindFirstChild("Head")
         if head and head:IsA("BasePart") then return head end
     end
     local root = char:FindFirstChild("HumanoidRootPart")
-    return root or char:FindFirstChild("Head")
+    if root and root:IsA("BasePart") then return root end
+    return char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart")
 end
 
 local function getClosestEnemy()
-    if not AimbotSettings.Enabled or not Camera then return nil end
+    if not Settings.Enabled or not Camera then return nil end
     local cp = Camera.CFrame.Position
     local cx, cy = Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2
     local best, bestScore, bestPlayer = nil, math.huge, nil
-    local maxFov = AimbotSettings.SilentAim and math.huge
-        or (math.tan(math.rad(AimbotSettings.FOV / 2)) / math.tan(math.rad(Camera.FieldOfView / 2))) * cx
-    local checkTeam = (AimbotSettings.AimMode == "CounterBlox")
+
+    local maxFov = Settings.SilentAim and math.huge
+        or (math.tan(math.rad(Settings.FOV / 2)) / math.tan(math.rad(Camera.FieldOfView / 2))) * cx
+    local checkTeam = (Settings.AimMode == "CounterBlox")
+
     for _, plr in ipairs(Players:GetPlayers()) do
-        if plr ~= Player and isPlayerAlive(plr) and not (checkTeam and isTeammate(plr)) then
-            local char = plr.Character
-            if char then
-                local part = getTargetPart(char)
-                if part and isVisible(part) then
-                    local pos = part.Position
-                    local dist = (pos - cp).Magnitude
-                    if dist <= AimbotSettings.MaxDistance then
-                        local screenPos = Camera:WorldToViewportPoint(pos)
-                        if screenPos then
-                            local dx, dy = screenPos.X - cx, screenPos.Y - cy
-                            local fovDist = math.sqrt(dx * dx + dy * dy)
-                            if fovDist <= maxFov and fovDist < bestScore then
-                                bestScore, best, bestPlayer = fovDist, part, plr
-                            end
-                        end
-                    end
-                end
-            end
+        if plr == Player then continue end
+        if not isPlayerAlive(plr) then continue end
+        if checkTeam and isTeammate(plr) then continue end
+
+        local char = plr.Character
+        if not char then continue end
+
+        local part = getTargetPart(char)
+        if not part or not isVisible(part) then continue end
+
+        local pos = part.Position
+        local dist = (pos - cp).Magnitude
+        if dist > Settings.MaxDistance then continue end
+
+        local screenPos = Camera:WorldToViewportPoint(pos)
+        if not screenPos then continue end
+
+        local dx, dy = screenPos.X - cx, screenPos.Y - cy
+        local fovDist = math.sqrt(dx * dx + dy * dy)
+
+        if fovDist <= maxFov and fovDist < bestScore then
+            bestScore, best, bestPlayer = fovDist, part, plr
         end
     end
-    if best then currentTargetPlayer = bestPlayer end
+    if best then AB.targetPlr = bestPlayer end
     return best
 end
 
 local function applyAutoStop()
-    if not AimbotSettings.AutoStop or not AimbotSettings.Enabled or not currentTarget then return end
+    if not Settings.AutoStop or not Settings.Enabled or not AB.target then return end
     local char = Player.Character
     if not char then return end
     local root = char:FindFirstChild("HumanoidRootPart")
-    local humanoid = char:FindFirstChild("Humanoid")
-    if root then
-        root.Velocity = Vector3.new(0, root.Velocity.Y, 0)
-        if humanoid then
-            if humanoid:GetState() == Enum.HumanoidStateType.Running then
-                humanoid:MoveTo(root.Position)
-            end
-        end
+    local hum = char:FindFirstChild("Humanoid")
+    if not root or not hum then return end
+    if hum.FloorMaterial ~= Enum.Material.Air then
+        local v = root.AssemblyLinearVelocity
+        root.AssemblyLinearVelocity = Vector3.new(0, v.Y, 0)
+        pcall(function() hum:MoveTo(root.Position) end)
     end
 end
 
-local function createFovCircle()
+local function CreateFovCircle()
     if not Drawing or not Camera then return end
-    if fovCircle then pcall(function() fovCircle:Remove() end); fovCircle = nil end
+    if AB.fovCircle then pcall(function() AB.fovCircle:Remove() end); AB.fovCircle = nil end
     pcall(function()
-        fovCircle = Drawing.new("Circle")
-        fovCircle.Visible, fovCircle.Radius, fovCircle.Thickness = false, 100, 1
-        fovCircle.Color, fovCircle.Filled, fovCircle.NumSides = CFG.Accent, false, 60
-        fovCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+        AB.fovCircle = Drawing.new("Circle")
+        AB.fovCircle.Visible = false
+        AB.fovCircle.Radius = 100
+        AB.fovCircle.Thickness = 2
+        AB.fovCircle.Color = Color3.fromRGB(255,255,255)
+        AB.fovCircle.Filled = false
+        AB.fovCircle.NumSides = 60
+        AB.fovCircle.Position = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
     end)
 end
 
-local function updateFovCircle()
-    if not Drawing or not fovCircle or not Camera then return end
+local function UpdateFovCircle()
+    if not Drawing or not AB.fovCircle or not Camera then return end
     pcall(function()
         local vs = Camera.ViewportSize
-        local cx = vs.X / 2
-        fovCircle.Position = Vector2.new(cx, vs.Y / 2)
-        if AimbotSettings.SilentAim then fovCircle.Visible = false return end
-        local aimRad = math.rad(AimbotSettings.FOV) / 2
-        local camRad = math.rad(Camera.FieldOfView) / 2
-        fovCircle.Radius = math.clamp((math.tan(aimRad) / math.tan(camRad)) * cx, 5, cx - 10)
-        fovCircle.Visible = AimbotSettings.Enabled
-        fovCircle.Color = CFG.Accent
+        local cx, cy = vs.X/2, vs.Y/2
+        AB.fovCircle.Position = Vector2.new(cx, cy)
+        if Settings.SilentAim then AB.fovCircle.Visible = false; return end
+        local aimRad = math.rad(Settings.FOV)/2
+        local camRad = math.rad(Camera.FieldOfView)/2
+        local r = (math.tan(aimRad)/math.tan(camRad)) * cx
+        AB.fovCircle.Radius = math.clamp(r, 5, cx-10)
+        AB.fovCircle.Visible = Settings.Enabled
     end)
 end
 
 local function mainLoop()
-    if not AimbotSettings.Enabled then
-        if fovCircle then pcall(function() fovCircle.Visible = false end) end
+    if not Settings.Enabled then
+        if AB.fovCircle then pcall(function() AB.fovCircle.Visible = false end) end
         return
     end
     if not Camera then return end
-    updateFovCircle()
+    UpdateFovCircle()
+
     local target = getClosestEnemy()
-    currentTarget = target
-    if not target then currentTargetPlayer = nil end
+    if target then AB.target = target else AB.target = nil; AB.targetPlr = nil end
     applyAutoStop()
-    if target then
+
+    if AB.target then
         pcall(function()
-            local targetPos = target.Position
+            local targetPos = AB.target.Position
             local camPos = Camera.CFrame.Position
-            if AimbotSettings.SilentAim then
+            if Settings.SilentAim then
                 Camera.CFrame = CFrame.lookAt(camPos, targetPos)
             else
-                Camera.CFrame = Camera.CFrame:Lerp(CFrame.lookAt(camPos, targetPos), (AimbotSettings.Smoothness or 0.5) + 0.2)
+                local targetCF = CFrame.lookAt(camPos, targetPos)
+                local smooth = Settings.Smoothness or 0.5
+                Camera.CFrame = Camera.CFrame:Lerp(targetCF, smooth + 0.2)
             end
         end)
     end
-    if not AimbotSettings.AutoFire or not target or not currentTargetPlayer then return end
-    if currentTargetPlayer == Player or not isPlayerAlive(currentTargetPlayer) then
-        currentTarget, currentTargetPlayer = nil, nil
-        return
-    end
-    if AimbotSettings.AimMode == "CounterBlox" and isTeammate(currentTargetPlayer) then
-        currentTarget, currentTargetPlayer = nil, nil
-        return
-    end
-    if not isVisible(target) then return end
-    local screenPos = Camera:WorldToViewportPoint(target.Position)
+
+    if not Settings.AutoFire or not AB.target or not AB.targetPlr then return end
+    local plr = AB.targetPlr
+    if plr == Player or not isPlayerAlive(plr) then AB.target = nil; AB.targetPlr = nil; return end
+    if Settings.AimMode == "CounterBlox" and isTeammate(plr) then AB.target = nil; AB.targetPlr = nil; return end
+    if not isVisible(AB.target) then return end
+
+    local screenPos = Camera:WorldToViewportPoint(AB.target.Position)
     if not screenPos then return end
     local cx, cy = Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2
     if math.abs(screenPos.X - cx) > 30 or math.abs(screenPos.Y - cy) > 30 then return end
-    if tick() - lastFireTime < AimbotSettings.AutoFireDelay then return end
+    if tick() - AB.lastFire < Settings.AutoFireDelay then return end
+
     if mouse1press then pcall(mouse1press) end
     task.wait(0.01)
     if mouse1release then pcall(mouse1release) end
-    lastFireTime = tick()
+    AB.lastFire = tick()
 end
 
-local function startAimbot()
-    if aimbotConnection then aimbotConnection:Disconnect(); aimbotConnection = nil end
-    currentTarget, currentTargetPlayer, lastFireTime = nil, nil, 0
-    createFovCircle()
-    aimbotConnection = RunService.RenderStepped:Connect(mainLoop)
+_G.MissWare.StartAimbot = function()
+    if AB.conn then AB.conn:Disconnect(); AB.conn = nil end
+    AB.target = nil; AB.targetPlr = nil; AB.lastFire = 0
+    CreateFovCircle()
+    AB.conn = RunService.RenderStepped:Connect(mainLoop)
 end
 
-local function stopAimbot()
-    if aimbotConnection then aimbotConnection:Disconnect(); aimbotConnection = nil end
-    if fovCircle then pcall(function() fovCircle.Visible = false end) end
-    currentTarget, currentTargetPlayer, lastFireTime = nil, nil, 0
+_G.MissWare.StopAimbot = function()
+    if AB.conn then AB.conn:Disconnect(); AB.conn = nil end
+    if AB.fovCircle then pcall(function() AB.fovCircle.Visible = false end) end
+    AB.target = nil; AB.targetPlr = nil; AB.lastFire = 0
 end
 
--- ============ ОТРИСОВКА UI КАРТОЧКИ ============
+_G.MissWare.UpdateFovCircle = UpdateFovCircle
+
 _G.MissWare.CreateAimbotUI = function(parentFrame)
-    local new = _G.MissWare.UI.New
-    local corner = _G.MissWare.UI.Corner
-    local stroke = _G.MissWare.UI.Stroke
-    local gradient = _G.MissWare.UI.Gradient
-    local checkbox = _G.MissWare.UI.Checkbox
-    local slider = _G.MissWare.UI.Slider
-    local dropdown = _G.MissWare.UI.Dropdown
-    local CFG = _G.MissWare.UI.CFG
+    local new = UI.New
+    local corner = UI.Corner
+    local stroke = UI.Stroke
+    local gradient = UI.Gradient
+    local checkbox = UI.Checkbox
+    local slider = UI.Slider
+    local dropdown = UI.Dropdown
+    local CFG = UI.CFG
 
     local card = new("Frame", {
         Size = UDim2.new(1, 0, 0, 320),
@@ -221,8 +218,8 @@ _G.MissWare.CreateAimbotUI = function(parentFrame)
     corner(card, 10)
     local cardStroke = stroke(card, CFG.Accent, 1, 0.4)
     if _G.MissWare.GlobalColorElements then
-    table.insert(_G.MissWare.GlobalColorElements, { obj = cardStroke, prop = "Color", base = "Accent" })
-end
+        table.insert(_G.MissWare.GlobalColorElements, { obj = cardStroke, prop = "Color", base = "Accent" })
+    end
     
     local title = new("TextLabel", {
         Size = UDim2.new(1, -20, 0, 30),
@@ -235,7 +232,9 @@ end
         TextXAlignment = Enum.TextXAlignment.Left,
         ZIndex = 4,
     }, card)
-    table.insert(_G.MissWare.GlobalColorElements, { obj = title, prop = "TextColor3", base = "AccentSoft" })
+    if _G.MissWare.GlobalColorElements then
+        table.insert(_G.MissWare.GlobalColorElements, { obj = title, prop = "TextColor3", base = "AccentSoft" })
+    end
     
     local line = new("Frame", {
         Size = UDim2.new(1, -20, 0, 1),
@@ -262,39 +261,33 @@ end
     new("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }, right)
     
     checkbox(left, "Enable Aimbot", false, 1, function(state)
-        _G.MissWare.Settings.Aimbot.Enabled = state
+        Settings.Enabled = state
         if state then _G.MissWare.StartAimbot() else _G.MissWare.StopAimbot() end
     end, "Combat_Aimbot")
     
     checkbox(left, "Silent Aim", false, 2, function(state)
-        _G.MissWare.Settings.Aimbot.SilentAim = state
-        _G.MissWare.UpdateFovCircle()
+        Settings.SilentAim = state
+        UpdateFovCircle()
     end, "Combat_SilentAim")
     
     checkbox(left, "Auto Fire", false, 3, function(state)
-        _G.MissWare.Settings.Aimbot.AutoFire = state
+        Settings.AutoFire = state
     end, "Combat_AutoFire")
     
     slider(right, "FOV", 1, 360, 10, 1, function(val)
-        _G.MissWare.Settings.Aimbot.FOV = val
-        _G.MissWare.UpdateFovCircle()
+        Settings.FOV = val
+        UpdateFovCircle()
     end, "Combat_FOV")
     
     slider(right, "Smoothness", 1, 100, 30, 2, function(val)
-        _G.MissWare.Settings.Aimbot.Smoothness = val / 100
+        Settings.Smoothness = val / 100
     end, "Combat_Smooth")
     
     dropdown(left, "Aim Part", {"Head", "HumanoidRootPart", "Torso"}, "Head", 4, function(val)
-        _G.MissWare.Settings.Aimbot.AimPart = val
+        Settings.AimPart = val
     end, "Combat_AimPart")
     
     dropdown(right, "Aim Mode", {"Classic", "CounterBlox"}, "Classic", 3, function(val)
-        _G.MissWare.Settings.Aimbot.AimMode = val
+        Settings.AimMode = val
     end, "Combat_AimMode")
 end
-
-_G.MissWare.AimbotSettings = AimbotSettings
-_G.MissWare.startAimbot = startAimbot
-_G.MissWare.stopAimbot = stopAimbot
-_G.MissWare.updateFovCircle = updateFovCircle
-print("[MissWare] Aimbot loaded")
