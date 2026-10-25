@@ -199,115 +199,96 @@ local function stopAimbot()
     currentTarget, currentTargetPlayer, lastFireTime = nil, nil, 0
 end
 
--- ========== UI CARD (стиль MissWare 8.1) ==========
-function _G.MissWare.CreateAimbotUI(parent)
-    -- 1. Заголовок раздела
-    local holder = new("Frame", {
-        Size = UDim2.new(1, 0, 0, 24),
-        BackgroundTransparency = 1,
+-- ============ ОТРИСОВКА UI КАРТОЧКИ ============
+_G.MissWare.CreateAimbotUI = function(parentFrame)
+    local new = _G.MissWare.UI.New
+    local corner = _G.MissWare.UI.Corner
+    local stroke = _G.MissWare.UI.Stroke
+    local gradient = _G.MissWare.UI.Gradient
+    local checkbox = _G.MissWare.UI.Checkbox
+    local slider = _G.MissWare.UI.Slider
+    local dropdown = _G.MissWare.UI.Dropdown
+    local CFG = _G.MissWare.UI.CFG
+
+    local card = new("Frame", {
+        Size = UDim2.new(1, 0, 0, 320),
+        BackgroundColor3 = CFG.PanelLight,
+        BackgroundTransparency = 0.7,
+        BorderSizePixel = 0,
         LayoutOrder = 1,
         ZIndex = 3,
-    }, parent)
+    }, parentFrame)
+    corner(card, 10)
+    local cardStroke = stroke(card, CFG.Accent, 1, 0.4)
+    table.insert(_G.MissWare.GlobalColorElements, { obj = cardStroke, prop = "Color", base = "Accent" })
+    
     local title = new("TextLabel", {
-        Size = UDim2.new(0, 200, 1, 0),
+        Size = UDim2.new(1, -20, 0, 30),
+        Position = UDim2.fromOffset(10, 10),
         BackgroundTransparency = 1,
         Text = "AIMBOT",
         TextColor3 = CFG.AccentSoft,
-        Font = UI.FontBold,
-        TextSize = 11,
+        Font = CFG.FontBold,
+        TextSize = 14,
         TextXAlignment = Enum.TextXAlignment.Left,
         ZIndex = 4,
-    }, holder)
-    table.insert(UI.GlobalColorElements, { obj = title, prop = "TextColor3", base = "AccentSoft" })
-
-    -- 2. Toggle (Активация)
-    local toggleHolder = new("Frame", {
-        Size = UDim2.new(1, 0, 0, 42),
-        BackgroundColor3 = CFG.PanelLight,
+    }, card)
+    table.insert(_G.MissWare.GlobalColorElements, { obj = title, prop = "TextColor3", base = "AccentSoft" })
+    
+    local line = new("Frame", {
+        Size = UDim2.new(1, -20, 0, 1),
+        Position = UDim2.new(0, 10, 0, 36),
+        BackgroundColor3 = CFG.Accent,
         BackgroundTransparency = 0.5,
         BorderSizePixel = 0,
-        LayoutOrder = 2,
-        ZIndex = 3,
-    }, parent)
-    corner(toggleHolder, 8)
-    stroke(toggleHolder, CFG.TextDim, 1, 0.8)
-
-    local toggleLabel = new("TextLabel", {
-        Size = UDim2.new(0.5, -14, 1, 0),
-        Position = UDim2.fromOffset(14, 0),
+        ZIndex = 4,
+    }, card)
+    gradient(line, CFG.Accent, Color3.fromRGB(0,0,0), 0)
+    
+    local columns = new("Frame", {
+        Size = UDim2.new(1, -20, 1, -50),
+        Position = UDim2.fromOffset(10, 45),
         BackgroundTransparency = 1,
-        Text = "Enabled",
-        TextColor3 = CFG.Text,
-        Font = UI.FontMed,
-        TextSize = 13,
-        TextXAlignment = Enum.TextXAlignment.Left,
         ZIndex = 4,
-    }, toggleHolder)
-
-    local toggleBtn = new("TextButton", {
-        Size = UDim2.fromOffset(48, 24),
-        Position = UDim2.new(0.5, 0, 0.5, -12),
-        BackgroundColor3 = CFG.Bg,
-        BackgroundTransparency = 0.3,
-        Text = "OFF",
-        TextColor3 = CFG.Text,
-        Font = UI.FontBold,
-        TextSize = 12,
-        AutoButtonColor = false,
-        ZIndex = 4,
-    }, toggleHolder)
-    corner(toggleBtn, 6)
-    stroke(toggleBtn, CFG.Accent, 1, 0.5)
-
-    local function updateToggleVisual()
-        toggleBtn.Text = AimbotSettings.Enabled and "ON" or "OFF"
-        toggleBtn.TextColor3 = AimbotSettings.Enabled and CFG.Accent or CFG.Text
-        toggleBtn.BackgroundTransparency = AimbotSettings.Enabled and 0.1 or 0.3
-    end
-    updateToggleVisual()
-
-    toggleBtn.MouseButton1Click:Connect(function()
-        AimbotSettings.Enabled = not AimbotSettings.Enabled
-        updateToggleVisual()
-        if AimbotSettings.Enabled then startAimbot() else stopAimbot() end
-    end)
-
-    -- 3. Остальные компоненты
-    UI.Dropdown(parent, "Aim Mode", {"Classic", "CounterBlox"}, AimbotSettings.AimMode, 3, function(v)
-        AimbotSettings.AimMode = v
-    end, "Aimbot_AimMode")
-
-    UI.Dropdown(parent, "Aim Part", {"Head", "Body", "Torso"}, AimbotSettings.AimPart, 4, function(v)
-        AimbotSettings.AimPart = v
-    end, "Aimbot_AimPart")
-
-    UI.Slider(parent, "FOV", 10, 360, AimbotSettings.FOV, 5, function(v)
-        AimbotSettings.FOV = v; updateFovCircle()
-    end, "Aimbot_FOV")
-
-    UI.Slider(parent, "Smooth", 0.1, 1.0, AimbotSettings.Smoothness, 6, function(v)
-        AimbotSettings.Smoothness = v
-    end, "Aimbot_Smooth")
-
-    UI.Slider(parent, "Distance", 50, 1000, AimbotSettings.MaxDistance, 7, function(v)
-        AimbotSettings.MaxDistance = v
-    end, "Aimbot_Dist")
-
-    UI.Slider(parent, "Fire Delay", 0.01, 0.5, AimbotSettings.AutoFireDelay, 8, function(v)
-        AimbotSettings.AutoFireDelay = v
-    end, "Aimbot_FireDelay")
-
-    UI.Checkbox(parent, "Silent Aim", AimbotSettings.SilentAim, 9, function(v)
-        AimbotSettings.SilentAim = v; updateFovCircle()
-    end, "Aimbot_SilentAim")
-
-    UI.Checkbox(parent, "Auto Fire", AimbotSettings.AutoFire, 10, function(v)
-        AimbotSettings.AutoFire = v
-    end, "Aimbot_AutoFire")
-
-    UI.Checkbox(parent, "Auto Stop", AimbotSettings.AutoStop, 11, function(v)
-        AimbotSettings.AutoStop = v
-    end, "Aimbot_AutoStop")
+    }, card)
+    new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder }, columns)
+    
+    local left = new("Frame", { Size = UDim2.new(0.5, -5, 1, 0), BackgroundTransparency = 1, LayoutOrder = 1, ZIndex = 4 }, columns)
+    new("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }, left)
+    
+    local right = new("Frame", { Size = UDim2.new(0.5, -5, 1, 0), BackgroundTransparency = 1, LayoutOrder = 2, ZIndex = 4 }, columns)
+    new("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }, right)
+    
+    checkbox(left, "Enable Aimbot", false, 1, function(state)
+        _G.MissWare.Settings.Aimbot.Enabled = state
+        if state then _G.MissWare.StartAimbot() else _G.MissWare.StopAimbot() end
+    end, "Combat_Aimbot")
+    
+    checkbox(left, "Silent Aim", false, 2, function(state)
+        _G.MissWare.Settings.Aimbot.SilentAim = state
+        _G.MissWare.UpdateFovCircle()
+    end, "Combat_SilentAim")
+    
+    checkbox(left, "Auto Fire", false, 3, function(state)
+        _G.MissWare.Settings.Aimbot.AutoFire = state
+    end, "Combat_AutoFire")
+    
+    slider(right, "FOV", 1, 360, 10, 1, function(val)
+        _G.MissWare.Settings.Aimbot.FOV = val
+        _G.MissWare.UpdateFovCircle()
+    end, "Combat_FOV")
+    
+    slider(right, "Smoothness", 1, 100, 30, 2, function(val)
+        _G.MissWare.Settings.Aimbot.Smoothness = val / 100
+    end, "Combat_Smooth")
+    
+    dropdown(left, "Aim Part", {"Head", "HumanoidRootPart", "Torso"}, "Head", 4, function(val)
+        _G.MissWare.Settings.Aimbot.AimPart = val
+    end, "Combat_AimPart")
+    
+    dropdown(right, "Aim Mode", {"Classic", "CounterBlox"}, "Classic", 3, function(val)
+        _G.MissWare.Settings.Aimbot.AimMode = val
+    end, "Combat_AimMode")
 end
 
 _G.MissWare.AimbotSettings = AimbotSettings
