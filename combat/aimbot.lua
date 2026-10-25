@@ -1,9 +1,29 @@
--- ========== AIMBOT SETTINGS ==========
+--[[
+    MissWare Combat — Aimbot
+    Загружается через loadstring из main UI
+]]
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
+local Player = Players.LocalPlayer
+local Camera = Workspace.CurrentCamera
+local Drawing = Drawing or nil
+
+-- Доступ к API GUI
+local UI = _G.MissWare and _G.MissWare.UI
+if not UI then
+    warn("[MissWare Aimbot] UI API не найден")
+    return
+end
+
+-- ========== SETTINGS ==========
 local AimbotSettings = {
     Enabled = false,
     AimPart = "Head",
     AimMode = "Classic",
-    FOV = 10,
+    FOV = 45,
     Smoothness = 0.3,
     SilentAim = false,
     AutoFire = false,
@@ -13,12 +33,13 @@ local AimbotSettings = {
     BindKey = nil,
 }
 
--- ========== AIMBOT LOGIC ==========
+-- ========== LOGIC ==========
 local fovCircle = nil
 local aimbotConnection = nil
 local lastFireTime = 0
 local currentTarget = nil
 local currentTargetPlayer = nil
+local AimbotToggle = nil
 
 local function isPlayerAlive(plr)
     if not plr then return false end
@@ -31,15 +52,12 @@ end
 
 local function isTeammate(plr)
     if not plr or not Player then return false end
-    if plr.Team and Player.Team and plr.Team == Player.Team then
-        return true
-    end
+    if plr.Team and Player.Team and plr.Team == Player.Team then return true end
     return false
 end
 
 local function isVisible(targetPart)
-    if not targetPart then return true end
-    if not Camera then return true end
+    if not targetPart or not Camera then return true end
     local origin = Camera.CFrame.Position
     local direction = (targetPart.Position - origin).Unit
     local distance = (origin - targetPart.Position).Magnitude
@@ -61,8 +79,7 @@ local function getTargetPart(char)
 end
 
 local function getClosestEnemy()
-    if not AimbotSettings.Enabled then return nil end
-    if not Camera then return nil end
+    if not AimbotSettings.Enabled or not Camera then return nil end
 
     local cp = Camera.CFrame.Position
     local cx, cy = Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2
@@ -73,28 +90,25 @@ local function getClosestEnemy()
     local checkTeam = (AimbotSettings.AimMode == "CounterBlox")
 
     for _, plr in ipairs(Players:GetPlayers()) do
-        if plr == Player then continue end
-        if not isPlayerAlive(plr) then continue end
-        if checkTeam and isTeammate(plr) then continue end
-
-        local char = plr.Character
-        if not char then continue end
-
-        local part = getTargetPart(char)
-        if not part or not isVisible(part) then continue end
-
-        local pos = part.Position
-        local dist = (pos - cp).Magnitude
-        if dist > AimbotSettings.MaxDistance then continue end
-
-        local screenPos = Camera:WorldToViewportPoint(pos)
-        if not screenPos then continue end
-
-        local dx, dy = screenPos.X - cx, screenPos.Y - cy
-        local fovDist = math.sqrt(dx * dx + dy * dy)
-
-        if fovDist <= maxFov and fovDist < bestScore then
-            bestScore, best, bestPlayer = fovDist, part, plr
+        if plr ~= Player and isPlayerAlive(plr) and not (checkTeam and isTeammate(plr)) then
+            local char = plr.Character
+            if char then
+                local part = getTargetPart(char)
+                if part and isVisible(part) then
+                    local pos = part.Position
+                    local dist = (pos - cp).Magnitude
+                    if dist <= AimbotSettings.MaxDistance then
+                        local screenPos = Camera:WorldToViewportPoint(pos)
+                        if screenPos then
+                            local dx, dy = screenPos.X - cx, screenPos.Y - cy
+                            local fovDist = math.sqrt(dx * dx + dy * dy)
+                            if fovDist <= maxFov and fovDist < bestScore then
+                                bestScore, best, bestPlayer = fovDist, part, plr
+                            end
+                        end
+                    end
+                end
+            end
         end
     end
 
@@ -103,100 +117,74 @@ local function getClosestEnemy()
 end
 
 local function applyAutoStop()
-    if not AimbotSettings.AutoStop then return end
-    if not AimbotSettings.Enabled then return end
-    if not currentTarget then return end
-
+    if not AimbotSettings.AutoStop or not AimbotSettings.Enabled or not currentTarget then return end
     local char = Player.Character
     if not char then return end
-
     local root = char:FindFirstChild("HumanoidRootPart")
-    if not root then return end
-
     local humanoid = char:FindFirstChild("Humanoid")
-
-    root.Velocity = Vector3.new(0, root.Velocity.Y, 0)
-
-    if humanoid then
-        local state = humanoid:GetState()
-        if state == Enum.HumanoidStateType.Running then
-            humanoid:MoveTo(root.Position)
+    if root then
+        root.Velocity = Vector3.new(0, root.Velocity.Y, 0)
+        if humanoid then
+            local state = humanoid:GetState()
+            if state == Enum.HumanoidStateType.Running then
+                humanoid:MoveTo(root.Position)
+            end
         end
     end
 end
 
-function createFovCircle()
-    if not Drawing then return end
-    if not Camera then return end
-
-    if fovCircle then
-        pcall(function() fovCircle:Remove() end)
-        fovCircle = nil
-    end
-
+local function createFovCircle()
+    if not Drawing or not Camera then return end
+    if fovCircle then pcall(function() fovCircle:Remove() end); fovCircle = nil end
     pcall(function()
         fovCircle = Drawing.new("Circle")
         fovCircle.Visible = false
         fovCircle.Radius = 100
-        fovCircle.Thickness = 2
-        fovCircle.Color = Color3.fromRGB(255, 255, 255)
+        fovCircle.Thickness = 1
+        fovCircle.Color = UI.CFG.Accent
         fovCircle.Filled = false
         fovCircle.NumSides = 60
         fovCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
     end)
 end
 
-function updateFovCircle()
-    if not Drawing or not fovCircle then return end
-    if not Camera then return end
-
+local function updateFovCircle()
+    if not Drawing or not fovCircle or not Camera then return end
     pcall(function()
         local vs = Camera.ViewportSize
         local cx = vs.X / 2
-        local cy = vs.Y / 2
-        fovCircle.Position = Vector2.new(cx, cy)
-
+        fovCircle.Position = Vector2.new(cx, vs.Y / 2)
         if AimbotSettings.SilentAim then
             fovCircle.Visible = false
             return
         end
-
         local aimRad = math.rad(AimbotSettings.FOV) / 2
         local camRad = math.rad(Camera.FieldOfView) / 2
         local r = (math.tan(aimRad) / math.tan(camRad)) * cx
         fovCircle.Radius = math.clamp(r, 5, cx - 10)
         fovCircle.Visible = AimbotSettings.Enabled
-        fovCircle.Color = Color3.fromRGB(255, 255, 255)
+        fovCircle.Color = UI.CFG.Accent
     end)
 end
 
 local function mainLoop()
     if not AimbotSettings.Enabled then
-        if fovCircle then
-            pcall(function() fovCircle.Visible = false end)
-        end
+        if fovCircle then pcall(function() fovCircle.Visible = false end) end
         return
     end
-
     if not Camera then return end
-
     updateFovCircle()
 
     local target = getClosestEnemy()
-    if target then
-        currentTarget = target
-    else
-        currentTarget = nil
-        currentTargetPlayer = nil
-    end
+    currentTarget = target
+    if not target then currentTargetPlayer = nil end
 
     applyAutoStop()
 
-    if currentTarget and AimbotSettings.Enabled then
+    if target then
         pcall(function()
-            local targetPos = currentTarget.Position
+            local targetPos = target.Position
             local camPos = Camera.CFrame.Position
-
             if AimbotSettings.SilentAim then
                 Camera.CFrame = CFrame.lookAt(camPos, targetPos)
             else
@@ -207,30 +195,22 @@ local function mainLoop()
         end)
     end
 
-    -- AUTOFIRE
-    if not AimbotSettings.AutoFire or not currentTarget or not currentTargetPlayer then return end
-
+    if not AimbotSettings.AutoFire or not target or not currentTargetPlayer then return end
     local plr = currentTargetPlayer
     if plr == Player or not isPlayerAlive(plr) then
-        currentTarget = nil
-        currentTargetPlayer = nil
+        currentTarget, currentTargetPlayer = nil, nil
         return
     end
-
     if AimbotSettings.AimMode == "CounterBlox" and isTeammate(plr) then
-        currentTarget = nil
-        currentTargetPlayer = nil
+        currentTarget, currentTargetPlayer = nil, nil
         return
     end
+    if not isVisible(target) then return end
 
-    if not isVisible(currentTarget) then return end
-
-    local screenPos = Camera:WorldToViewportPoint(currentTarget.Position)
+    local screenPos = Camera:WorldToViewportPoint(target.Position)
     if not screenPos then return end
-
     local cx, cy = Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2
     if math.abs(screenPos.X - cx) > 30 or math.abs(screenPos.Y - cy) > 30 then return end
-
     if tick() - lastFireTime < AimbotSettings.AutoFireDelay then return end
 
     if mouse1press then pcall(mouse1press) end
@@ -239,32 +219,113 @@ local function mainLoop()
     lastFireTime = tick()
 end
 
-function startAimbot()
-    if aimbotConnection then
-        aimbotConnection:Disconnect()
-        aimbotConnection = nil
-    end
-
-    currentTarget = nil
-    currentTargetPlayer = nil
-    lastFireTime = 0
-
+local function startAimbot()
+    if aimbotConnection then aimbotConnection:Disconnect(); aimbotConnection = nil end
+    currentTarget, currentTargetPlayer, lastFireTime = nil, nil, 0
     createFovCircle()
-
     aimbotConnection = RunService.RenderStepped:Connect(mainLoop)
 end
 
-function stopAimbot()
-    if aimbotConnection then
-        aimbotConnection:Disconnect()
-        aimbotConnection = nil
+local function stopAimbot()
+    if aimbotConnection then aimbotConnection:Disconnect(); aimbotConnection = nil end
+    if fovCircle then pcall(function() fovCircle.Visible = false end) end
+    currentTarget, currentTargetPlayer, lastFireTime = nil, nil, 0
+end
+
+-- ========== UI CARD ==========
+function _G.MissWare.CreateAimbotUI(parent)
+    local new, corner, stroke, checkbox, slider = UI.New, UI.Corner, UI.Stroke, UI.Checkbox, UI.Slider
+    local CFG = UI.CFG
+
+    -- Контейнер карточки (использует panel стиль)
+    local card = new("Frame", {
+        Size = UDim2.new(1, -16, 0, 360), -- Примерная высота, можно сделать авто
+        BackgroundColor3 = CFG.PanelLight,
+        BackgroundTransparency = 0.5,
+        BorderSizePixel = 0,
+        ZIndex = 3,
+    }, parent)
+    corner(card, 12)
+    stroke(card, CFG.Accent, 1.5, 0.6)
+
+    -- Заголовок с тумблером
+    local title = new("TextLabel", {
+        Size = UDim2.new(1, -20, 0, 30),
+        Position = UDim2.fromOffset(10, 10),
+        BackgroundTransparency = 1,
+        Text = "AIMBOT",
+        TextColor3 = CFG.Text,
+        Font = UI.FontBold,
+        TextSize = 14,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 4,
+    }, card)
+
+    local btn = new("TextButton", {
+        Size = UDim2.fromOffset(44, 24),
+        Position = UDim2.new(1, -54, 0, 12),
+        BackgroundColor3 = CFG.Bg,
+        Text = "OFF",
+        TextColor3 = CFG.Text,
+        Font = UI.FontBold,
+        TextSize = 12,
+        ZIndex = 4,
+    }, card)
+    corner(btn, 6)
+    stroke(btn, CFG.Accent, 1, 0.5)
+
+    btn.MouseButton1Click:Connect(function()
+        AimbotSettings.Enabled = not AimbotSettings.Enabled
+        btn.Text = AimbotSettings.Enabled and "ON" or "OFF"
+        btn.TextColor3 = AimbotSettings.Enabled and CFG.Accent or CFG.Text
+        if AimbotSettings.Enabled then startAimbot() else stopAimbot() end
+    end)
+
+    -- Контент (сетка компонентов)
+    local content = new("Frame", {
+        Size = UDim2.new(1, -20, 1, -50),
+        Position = UDim2.fromOffset(10, 40),
+        BackgroundTransparency = 1,
+        ZIndex = 3,
+    }, card)
+    new("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }, content)
+
+    -- Компоненты (с интегрированным ConfigKey)
+    local function dropdown(parent, text, options, default, order, callback, configKey)
+        -- (упрощенная реализация dropdown, так как в base UI его нет, 
+        -- нужно добавить в основной UI)
+        return UI.Dropdown and UI.Dropdown(parent, text, options, default, order, callback, configKey) or nil
     end
 
-    if fovCircle then
-        pcall(function() fovCircle.Visible = false end)
-    end
+    -- Пример вызова (твоя UI-библиотека должна поддерживать configKey):
+    UI.Slider(content, "FOV", 10, 360, AimbotSettings.FOV, 1, function(val)
+        AimbotSettings.FOV = val
+        updateFovCircle()
+    end, "Aimbot_FOV")
 
-    currentTarget = nil
-    currentTargetPlayer = nil
-    lastFireTime = 0
+    UI.Slider(content, "Smooth", 0.1, 1.0, AimbotSettings.Smoothness, 2, function(val)
+        AimbotSettings.Smoothness = val
+    end, "Aimbot_Smooth")
+
+    UI.Slider(content, "Distance", 50, 1000, AimbotSettings.MaxDistance, 3, function(val)
+        AimbotSettings.MaxDistance = val
+    end, "Aimbot_Dist")
+
+    UI.Checkbox(content, "Silent Aim", AimbotSettings.SilentAim, 4, function(val)
+        AimbotSettings.SilentAim = val
+        updateFovCircle()
+    end, "Aimbot_Silent")
+
+    UI.Checkbox(content, "Auto Fire", AimbotSettings.AutoFire, 5, function(val)
+        AimbotSettings.AutoFire = val
+    end, "Aimbot_AutoFire")
+
+    UI.Checkbox(content, "Auto Stop", AimbotSettings.AutoStop, 6, function(val)
+        AimbotSettings.AutoStop = val
+    end, "Aimbot_AutoStop")
+    
+    -- Обновляем размер карточки под содержимое
+    content.UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        card.Size = UDim2.new(1, -16, 0, 50 + content.UIListLayout.AbsoluteContentSize.Y)
+    end)
 end
