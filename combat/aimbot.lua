@@ -1,5 +1,5 @@
 -- combat/aimbot.lua
--- Полный модуль Aimbot (Логика + UI + Цвета)
+-- Полный модуль Aimbot (Логика + UI + Цвета + Темы)
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -33,6 +33,7 @@ local AB = { fovCircle = nil, conn = nil, lastFire = 0, target = nil, targetPlr 
 
 -- Переменные для хранения UI элементов (чтобы перекрашивать)
 local UI_Elements = {
+    Card = nil,
     CardStroke = nil,
     CardTitle = nil,
     CardLine = nil,
@@ -222,15 +223,16 @@ _G.MissWare.UpdateFovCircle = UpdateFovCircle
 _G.MissWare.CreateAimbotUI = function(parentFrame)
     local card = new("Frame", {
         Size = UDim2.new(1, 0, 0, 320),
-        BackgroundColor3 = CFG.PanelLight,
-        BackgroundTransparency = 0.7,
+        BackgroundColor3 = CFG.PanelLight, -- Берем цвет из текущей темы
+        BackgroundTransparency = 0.7,       -- Блюр
         BorderSizePixel = 0,
         LayoutOrder = 1,
         ZIndex = 3,
     }, parentFrame)
     corner(card, 10)
-    UI_Elements.CardStroke = stroke(card, CFG.Accent, 1, 0.4)
+    UI_Elements.Card = card
     
+    UI_Elements.CardStroke = stroke(card, CFG.Accent, 1, 0.4)
     if _G.MissWare.GlobalColorElements then
         table.insert(_G.MissWare.GlobalColorElements, { obj = UI_Elements.CardStroke, prop = "Color", base = "Accent" })
     end
@@ -260,7 +262,6 @@ _G.MissWare.CreateAimbotUI = function(parentFrame)
         ZIndex = 4,
     }, card)
     
-    -- ИСПОЛЬЗУЕМ AccentDark ВМЕСТО ЧЕРНОГО ДЛЯ ГРАДИЕНТА
     UI_Elements.CardLine = gradient(line, CFG.Accent, CFG.AccentDark, 0) 
     if _G.MissWare.GlobalColorElements then
         table.insert(_G.MissWare.GlobalColorElements, { obj = line, prop = "BackgroundColor3", base = "Accent" })
@@ -304,28 +305,35 @@ _G.MissWare.CreateAimbotUI = function(parentFrame)
         Settings.Smoothness = val / 100
     end, "Combat_Smooth")
     
-    -- Сохраняем дропдауны в таблицу, чтобы перекрашивать
     local dd1 = dropdown(left, "Aim Part", {"Head", "HumanoidRootPart", "Torso"}, "Head", 4, function(val)
         Settings.AimPart = val
     end, "Combat_AimPart")
     table.insert(UI_Elements.Dropdowns, dd1)
     
-    local dd2 = dropdown(right, "Aim Mode", {"Classic", "CounterBlox"}, "Classic", 3, function(val)
+    -- ВОЗВРАЩАЕМ РЕЖИМ FLUXOPVP
+    local dd2 = dropdown(right, "Aim Mode", {"Classic", "CounterBlox", "FluxoPvP"}, "Classic", 3, function(val)
         Settings.AimMode = val
     end, "Combat_AimMode")
     table.insert(UI_Elements.Dropdowns, dd2)
 end
 
--- Функция для перекраски (вызывается из главного скрипта)
+-- Функция обновления при смене АКЦЕНТА (Цвета)
 _G.MissWare.UpdateAimbotAccent = function()
     if UI_Elements.CardStroke then UI_Elements.CardStroke.Color = CFG.Accent end
     if UI_Elements.CardTitle then UI_Elements.CardTitle.TextColor3 = CFG.AccentSoft end
     if UI_Elements.CardLine then UI_Elements.CardLine.Color = ColorSequence.new(CFG.Accent, CFG.AccentDark) end
     
-    -- Пробегаемся по сохраненным дропдаунам и перекрашиваем их
     for _, dd in ipairs(UI_Elements.Dropdowns) do
-        if dd and dd.UpdateColor then
-            dd.UpdateColor()
-        end
+        if dd and dd.UpdateColor then dd.UpdateColor() end
+    end
+end
+
+-- Функция обновления при смене ТЕМЫ (Dark/Light)
+_G.MissWare.UpdateAimbotTheme = function()
+    if UI_Elements.Card then 
+        UI_Elements.Card.BackgroundColor3 = CFG.PanelLight 
+    end
+    if UI_Elements.CardTitle then 
+        UI_Elements.CardTitle.TextColor3 = CFG.AccentSoft 
     end
 end
