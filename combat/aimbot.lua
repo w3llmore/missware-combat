@@ -1,8 +1,5 @@
 --[[
-    MissWare Combat — Aimbot (v8 - POLISHED)
-    - Цвет карточки как у GUI
-    - Dropdown поверх всего (ZIndex 999) + блокировка кликов
-    - Реакция на смену темы
+    MissWare Combat — Aimbot (v9 - FIXED)
 ]]
 
 local Players = game:GetService("Players")
@@ -17,6 +14,8 @@ local UI = _G.MissWare and _G.MissWare.UI
 if not UI then warn("[MissWare Aimbot] UI API not found") return end
 local new, corner, stroke, gradient = UI.New, UI.Corner, UI.Stroke, UI.Gradient
 local CFG = UI.CFG
+local SetConfig = UI.SetConfig
+local ConfigElements = UI.ConfigElements
 
 local GlobalColorElements = _G.MissWare.GlobalColorElements
 local GlobalThemeElements = _G.MissWare.GlobalThemeElements
@@ -270,7 +269,6 @@ end
 
 -- ========== AIMBOT CARD ==========
 local function createAimbotCard(parent)
-    -- Цвет как у GUI (CFG.Bg)
     local card = new("Frame", {
         Size = UDim2.new(1, -8, 0, 245), 
         BackgroundColor3 = CFG.Bg,
@@ -284,7 +282,6 @@ local function createAimbotCard(parent)
     
     if GlobalThemeElements then
         table.insert(GlobalThemeElements, { obj = card, prop = "BackgroundColor3", base = "Bg" })
-        -- Добавляем обводку в цветовые элементы для реакции на акцент
         table.insert(GlobalColorElements, { obj = cardStroke, prop = "Color", base = "Accent" })
     end
 
@@ -342,14 +339,14 @@ local function createAimbotCard(parent)
     local function setEnabled(v)
         AimbotSettings.Enabled = v
         updateToggleVisual()
-        UI.SetConfig("Aimbot_Enabled", v)
+        SetConfig("Aimbot_Enabled", v)
         if v then startAimbot() else stopAimbot() end
     end
 
     toggle.MouseButton1Click:Connect(function() setEnabled(not AimbotSettings.Enabled) end)
 
-    UI.SetConfig("Aimbot_Enabled", AimbotSettings.Enabled)
-    UI.ConfigElements["Aimbot_Enabled"] = {
+    SetConfig("Aimbot_Enabled", AimbotSettings.Enabled)
+    ConfigElements["Aimbot_Enabled"] = {
         Set = function(v) setEnabled(v) end,
         Get = function() return AimbotSettings.Enabled end,
     }
@@ -392,25 +389,25 @@ local function createAimbotCard(parent)
         if input.UserInputType == Enum.UserInputType.Keyboard then
             if input.KeyCode ~= Enum.KeyCode.Unknown then
                 AimbotSettings.BindKey = input.KeyCode
-                UI.SetConfig("Aimbot_BindKey", input.KeyCode.Name)
+                SetConfig("Aimbot_BindKey", input.KeyCode.Name)
                 bindingAimbot = false
                 applyBindVisual()
             end
         elseif input.UserInputType == Enum.UserInputType.MouseButton1 then
             AimbotSettings.BindKey = Enum.UserInputType.MouseButton1
-            UI.SetConfig("Aimbot_BindKey", "M1")
+            SetConfig("Aimbot_BindKey", "M1")
             bindingAimbot = false
             applyBindVisual()
         elseif input.UserInputType == Enum.UserInputType.MouseButton2 then
             AimbotSettings.BindKey = Enum.UserInputType.MouseButton2
-            UI.SetConfig("Aimbot_BindKey", "M2")
+            SetConfig("Aimbot_BindKey", "M2")
             bindingAimbot = false
             applyBindVisual()
         end
     end)
 
-    UI.SetConfig("Aimbot_BindKey", AimbotSettings.BindKey and formatBind(AimbotSettings.BindKey) or nil)
-    UI.ConfigElements["Aimbot_BindKey"] = {
+    SetConfig("Aimbot_BindKey", AimbotSettings.BindKey and formatBind(AimbotSettings.BindKey) or nil)
+    ConfigElements["Aimbot_BindKey"] = {
         Set = function(v)
             if v == nil or v == "" then AimbotSettings.BindKey = nil
             elseif v == "M1" then AimbotSettings.BindKey = Enum.UserInputType.MouseButton1
@@ -449,15 +446,6 @@ local function createAimbotCard(parent)
     }, content)
     new("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 6) }, rightCol)
 
-    -- Вспомогательная функция для перекрытия дропдауна (чтобы клики не проваливались)
-    local blockInputFrame = new("TextButton", {
-        Size = UDim2.new(1, 0, 1, 0),
-        BackgroundTransparency = 1,
-        Text = "",
-        Visible = false,
-        ZIndex = 998,
-    }, parent)
-
     -- Кастомный Dropdown для Аимбота
     local function AimbotDropdown(parent, text, options, default, order, callback, configKey)
         local holder = new("Frame", { Size = UDim2.new(1, 0, 0, 42), BackgroundColor3 = CFG.PanelLight, BackgroundTransparency = 0.5, BorderSizePixel = 0, LayoutOrder = order or 1, ZIndex = 3 }, parent)
@@ -486,6 +474,15 @@ local function createAimbotCard(parent)
         
         new("UIListLayout", { Padding = UDim.new(0, 2), SortOrder = Enum.SortOrder.LayoutOrder }, listFrame)
         new("UIPadding", { PaddingTop = UDim.new(0, 4), PaddingBottom = UDim.new(0, 4) }, listFrame)
+
+        -- Блокиратор кликов
+        local blockInputFrame = new("TextButton", {
+            Size = UDim2.new(1, 0, 1, 0),
+            BackgroundTransparency = 1,
+            Text = "",
+            Visible = false,
+            ZIndex = 998,
+        }, _G.MissWare.Gui or parent)
 
         for i, opt in ipairs(options) do
             local ob = new("TextButton", { Size = UDim2.new(1, -8, 0, 24), Position = UDim2.fromOffset(4, 0), BackgroundColor3 = CFG.Accent, BackgroundTransparency = 1, Text = "  " .. tostring(opt), TextColor3 = CFG.Text, Font = UI.FontMed, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left, AutoButtonColor = false, LayoutOrder = i, ZIndex = 999 }, listFrame)
@@ -518,7 +515,6 @@ local function createAimbotCard(parent)
             end
         end)
 
-        -- Закрываем при клике по пустому месту (blockInputFrame)
         blockInputFrame.MouseButton1Click:Connect(function()
             isOpen = false
             blockInputFrame.Visible = false
@@ -534,7 +530,6 @@ local function createAimbotCard(parent)
         return returnObj
     end
 
-    -- ЛЕВЫЙ СТОЛБИК
     AimbotDropdown(leftCol, "Aim Mode", {"FluxoPvP", "Classic", "CounterBlox"}, AimbotSettings.AimMode, 1, function(v) AimbotSettings.AimMode = v end, "Aimbot_AimMode")
     AimbotDropdown(leftCol, "Aim Part", {"Head", "Body", "Torso"}, AimbotSettings.AimPart, 2, function(v) AimbotSettings.AimPart = v end, "Aimbot_AimPart")
 
@@ -542,7 +537,6 @@ local function createAimbotCard(parent)
     UI.Slider(leftCol, "Smooth", 0.1, 1.0, AimbotSettings.Smoothness, 4, function(v) AimbotSettings.Smoothness = v end, "Aimbot_Smooth")
     UI.Slider(leftCol, "Distance", 50, 1000, AimbotSettings.MaxDistance, 5, function(v) AimbotSettings.MaxDistance = v end, "Aimbot_Dist")
 
-    -- ПРАВЫЙ СТОЛБИК
     UI.Slider(rightCol, "Fire Delay", 0.01, 0.5, AimbotSettings.AutoFireDelay, 1, function(v) AimbotSettings.AutoFireDelay = v end, "Aimbot_FireDelay")
     UI.Checkbox(rightCol, "Silent Aim", AimbotSettings.SilentAim, 2, function(v) AimbotSettings.SilentAim = v; updateFovCircle() end, "Aimbot_SilentAim")
     UI.Checkbox(rightCol, "Auto Fire", AimbotSettings.AutoFire, 3, function(v) AimbotSettings.AutoFire = v end, "Aimbot_AutoFire")
@@ -555,7 +549,6 @@ function _G.MissWare.CreateAimbotUI(parent)
     createAimbotCard(parent)
 end
 
--- ========== BIND KEY HANDLER ==========
 UserInputService.InputBegan:Connect(function(input, gp)
     if gp then return end
     local k = AimbotSettings.BindKey
@@ -570,7 +563,7 @@ UserInputService.InputBegan:Connect(function(input, gp)
     end
     if pressed then
         AimbotSettings.Enabled = not AimbotSettings.Enabled
-        UI.SetConfig("Aimbot_Enabled", AimbotSettings.Enabled)
+        SetConfig("Aimbot_Enabled", AimbotSettings.Enabled)
         if AimbotSettings.Enabled then startAimbot() else stopAimbot() end
         if _G.MissWare.UpdateAimbotToggle then _G.MissWare.UpdateAimbotToggle() end
     end
