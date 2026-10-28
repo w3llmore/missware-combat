@@ -1,6 +1,5 @@
 --[[
-    MissWare Combat — Aimbot (v10 - STABLE)
-    Исправлены: дропдауны, слайдеры, цвета, ZIndex
+    MissWare Combat — Aimbot (v11 - CUSTOM DROPDOWN FIX)
 ]]
 
 local Players = game:GetService("Players")
@@ -230,9 +229,156 @@ local function formatBind(k)
     return tostring(k)
 end
 
+-- ========== CUSTOM DROPDOWN (ИСПРАВЛЕННЫЙ) ==========
+local function createFixedDropdown(parent, text, options, default, order, callback, configKey)
+    local holder = new("Frame", {
+        Size = UDim2.new(1, 0, 0, 42),
+        BackgroundColor3 = CFG.PanelLight,
+        BackgroundTransparency = 0.5,
+        BorderSizePixel = 0,
+        LayoutOrder = order or 1,
+        ZIndex = 3,
+    }, parent)
+    corner(holder, 8)
+    local hStroke = stroke(holder, CFG.TextDim, 1, 0.8)
+    
+    -- Регистрируем в темах
+    table.insert(GlobalThemeElements, { obj = holder, prop = "BackgroundColor3", base = "PanelLight" })
+    table.insert(GlobalThemeElements, { obj = hStroke, prop = "Color", base = "TextDim" })
+
+    local txt = new("TextLabel", {
+        Size = UDim2.new(0.5, -14, 1, 0),
+        Position = UDim2.fromOffset(14, 0),
+        BackgroundTransparency = 1,
+        Text = text,
+        TextColor3 = CFG.Text,
+        Font = UI.FontMed,
+        TextSize = 13,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 4
+    }, holder)
+    table.insert(GlobalThemeElements, { obj = txt, prop = "TextColor3", base = "Text" })
+
+    local btn = new("TextButton", {
+        Size = UDim2.new(0.5, -14, 0, 26),
+        Position = UDim2.new(0.5, 0, 0.5, -13),
+        BackgroundColor3 = CFG.Bg, -- Не прозрачный изначально
+        BackgroundTransparency = 0.1,
+        Text = "  " .. tostring(default) .. "  ▼",
+        TextColor3 = CFG.Accent,
+        Font = UI.FontBold,
+        TextSize = 12,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        AutoButtonColor = false,
+        ZIndex = 5
+    }, holder)
+    corner(btn, 6)
+    local btnStroke = stroke(btn, CFG.TextDim, 1, 0.6)
+    
+    table.insert(GlobalThemeElements, { obj = btn, prop = "BackgroundColor3", base = "Bg" })
+    table.insert(GlobalColorElements, { obj = btn, prop = "TextColor3", base = "Accent" })
+    table.insert(GlobalColorElements, { obj = btnStroke, prop = "Color", base = "Accent" })
+
+    local state = default
+    if configKey then SetConfig(configKey, state) end
+
+    local isOpen = false
+    local listFrame = new("ScrollingFrame", {
+        Size = UDim2.new(1, 0, 0, 0),
+        Position = UDim2.new(0, 0, 1, 5),
+        BackgroundColor3 = CFG.Bg, -- Не прозрачный
+        BackgroundTransparency = 0.05,
+        BorderSizePixel = 0,
+        ClipsDescendants = true,
+        Visible = false,
+        ZIndex = 999, -- Поверх всего
+        ScrollBarThickness = 0
+    }, holder)
+    corner(listFrame, 6)
+    local listStroke = stroke(listFrame, CFG.Accent, 1, 0.4)
+    
+    table.insert(GlobalThemeElements, { obj = listFrame, prop = "BackgroundColor3", base = "Bg" })
+    table.insert(GlobalColorElements, { obj = listStroke, prop = "Color", base = "Accent" })
+    
+    new("UIListLayout", { Padding = UDim.new(0, 2), SortOrder = Enum.SortOrder.LayoutOrder }, listFrame)
+    new("UIPadding", { PaddingTop = UDim.new(0, 4), PaddingBottom = UDim.new(0, 4) }, listFrame)
+
+    -- Блокиратор кликов (чтобы сквозь дропдаун нельзя было нажать)
+    local blockInputFrame = new("TextButton", {
+        Size = UDim2.new(1, 0, 1, 0),
+        BackgroundTransparency = 1,
+        Text = "",
+        Visible = false,
+        ZIndex = 998, -- Чуть ниже самого списка, но выше всего остального
+    }, _G.MissWare.Gui or parent)
+
+    for i, opt in ipairs(options) do
+        local ob = new("TextButton", {
+            Size = UDim2.new(1, -8, 0, 24),
+            Position = UDim2.fromOffset(4, 0),
+            BackgroundColor3 = CFG.Accent,
+            BackgroundTransparency = 1,
+            Text = "  " .. tostring(opt),
+            TextColor3 = CFG.Text,
+            Font = UI.FontMed,
+            TextSize = 12,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            AutoButtonColor = false,
+            LayoutOrder = i,
+            ZIndex = 1000 -- Поверх списка
+        }, listFrame)
+        corner(ob, 4)
+        
+        table.insert(GlobalThemeElements, { obj = ob, prop = "TextColor3", base = "Text" })
+        
+        ob.MouseEnter:Connect(function() tween(ob, CFG.EaseFast, { BackgroundTransparency = 0.7 }) end)
+        ob.MouseLeave:Connect(function() tween(ob, CFG.EaseFast, { BackgroundTransparency = 1 }) end)
+
+        ob.MouseButton1Click:Connect(function()
+            state = opt
+            btn.Text = "  " .. tostring(opt) .. "  ▼"
+            if configKey then SetConfig(configKey, state) end
+            if callback then callback(state) end
+            isOpen = false
+            blockInputFrame.Visible = false
+            tween(listFrame, CFG.EaseFast, { Size = UDim2.new(1, 0, 0, 0) })
+            task.delay(0.2, function() if not isOpen then listFrame.Visible = false end end)
+        end)
+    end
+
+    btn.MouseButton1Click:Connect(function()
+        isOpen = not isOpen
+        if isOpen then
+            blockInputFrame.Visible = true
+            listFrame.Visible = true
+            -- Поднимаем список на самый верх при открытии
+            listFrame.ZIndex = 999
+            tween(listFrame, CFG.EaseFast, { Size = UDim2.new(1, 0, 0, #options * 26 + 8) })
+        else
+            blockInputFrame.Visible = false
+            tween(listFrame, CFG.EaseFast, { Size = UDim2.new(1, 0, 0, 0) })
+            task.delay(0.2, function() if not isOpen then listFrame.Visible = false end end)
+        end
+    end)
+
+    blockInputFrame.MouseButton1Click:Connect(function()
+        isOpen = false
+        blockInputFrame.Visible = false
+        tween(listFrame, CFG.EaseFast, { Size = UDim2.new(1, 0, 0, 0) })
+        task.delay(0.2, function() if not isOpen then listFrame.Visible = false end end)
+    end)
+
+    local returnObj = { 
+        Set = function(v) state = v; btn.Text = "  " .. tostring(v) .. "  ▼"; if configKey then SetConfig(configKey, v) end end, 
+        Get = function() return state end
+    }
+    if configKey then ConfigElements[configKey] = returnObj end
+    return returnObj
+end
+
+
 -- ========== AIMBOT CARD ==========
 local function createAimbotCard(parent)
-    -- Карточка на всю ширину. Цвет и прозрачность как у окна (влияет блюр)
     local card = new("Frame", {
         Size = UDim2.new(1, -8, 0, 240), 
         BackgroundColor3 = CFG.Bg,
@@ -242,14 +388,13 @@ local function createAimbotCard(parent)
         ZIndex = 3,
     }, parent)
     corner(card, 10)
-    local cardStroke = stroke(card, CFG.Accent, 1, 0.4)
+    local cardStroke = stroke(card, CFG.Accent, 1, 0.5) -- Обводка карточки
     
     if GlobalThemeElements then
         table.insert(GlobalThemeElements, { obj = card, prop = "BackgroundColor3", base = "Bg" })
         table.insert(GlobalColorElements, { obj = cardStroke, prop = "Color", base = "Accent" })
     end
 
-    -- ===== HEADER =====
     local header = new("Frame", {
         Size = UDim2.new(1, -16, 0, 36),
         Position = UDim2.fromOffset(8, 4),
@@ -308,12 +453,8 @@ local function createAimbotCard(parent)
     end
 
     toggle.MouseButton1Click:Connect(function() setEnabled(not AimbotSettings.Enabled) end)
-
     SetConfig("Aimbot_Enabled", AimbotSettings.Enabled)
-    ConfigElements["Aimbot_Enabled"] = {
-        Set = function(v) setEnabled(v) end,
-        Get = function() return AimbotSettings.Enabled end,
-    }
+    ConfigElements["Aimbot_Enabled"] = { Set = function(v) setEnabled(v) end, Get = function() return AimbotSettings.Enabled end }
 
     -- BIND
     local bindBtn = new("TextButton", {
@@ -385,7 +526,6 @@ local function createAimbotCard(parent)
         Get = function() return AimbotSettings.BindKey and formatBind(AimbotSettings.BindKey) or nil end,
     }
 
-    -- ===== CONTENT =====
     local content = new("Frame", {
         Size = UDim2.new(1, -16, 1, -44),
         Position = UDim2.fromOffset(8, 40),
@@ -394,51 +534,33 @@ local function createAimbotCard(parent)
         ZIndex = 4,
     }, card)
 
-    local leftCol = new("Frame", {
-        Size = UDim2.new(0.5, -4, 1, 0),
-        Position = UDim2.fromOffset(0, 0),
-        BackgroundTransparency = 1,
-        ZIndex = 4,
-    }, content)
+    local leftCol = new("Frame", { Size = UDim2.new(0.5, -4, 1, 0), BackgroundTransparency = 1, ZIndex = 4 }, content)
     new("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 6) }, leftCol)
-
-    local rightCol = new("Frame", {
-        Size = UDim2.new(0.5, -4, 1, 0),
-        Position = UDim2.new(0.5, 4, 0, 0),
-        BackgroundTransparency = 1,
-        ZIndex = 4,
-    }, content)
+    local rightCol = new("Frame", { Size = UDim2.new(0.5, -4, 1, 0), Position = UDim2.new(0.5, 4, 0, 0), BackgroundTransparency = 1, ZIndex = 4 }, content)
     new("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 6) }, rightCol)
 
-    -- Используем СТАНДАРТНЫЙ UI.Dropdown, чтобы не ломать цвета и блюр
-    UI.Dropdown(leftCol, "Aim Mode", {"FluxoPvP", "Classic", "CounterBlox"}, AimbotSettings.AimMode, 1, function(v) AimbotSettings.AimMode = v end, "Aimbot_AimMode")
-    UI.Dropdown(leftCol, "Aim Part", {"Head", "Body", "Torso"}, AimbotSettings.AimPart, 2, function(v) AimbotSettings.AimPart = v end, "Aimbot_AimPart")
+    -- Используем НАШ НОВЫЙ ДРОПДАУН
+    createFixedDropdown(leftCol, "Aim Mode", {"FluxoPvP", "Classic", "CounterBlox"}, AimbotSettings.AimMode, 1, function(v) AimbotSettings.AimMode = v end, "Aimbot_AimMode")
+    createFixedDropdown(leftCol, "Aim Part", {"Head", "Body", "Torso"}, AimbotSettings.AimPart, 2, function(v) AimbotSettings.AimPart = v end, "Aimbot_AimPart")
 
-    -- Smooth: 0.1 - 1.0 (шаг реализуется в GUI, если там float), чтобы менялось плавно, ставим 1 - 10 и делим на 10
+    -- Smooth: 0.1 - 1.0
     local smoothSlider = UI.Slider(leftCol, "Smooth", 1, 10, math.floor(AimbotSettings.Smoothness * 10), 3, function(v) 
         AimbotSettings.Smoothness = v / 10 
     end, "Aimbot_Smooth")
-    -- Перезаписываем Set для Smooth, чтобы конфиг хранил float
     ConfigElements["Aimbot_Smooth"] = {
-        Set = function(v) 
-            AimbotSettings.Smoothness = v
-            smoothSlider:Set(math.floor(v * 10)) 
-        end,
+        Set = function(v) AimbotSettings.Smoothness = v; smoothSlider:Set(math.floor(v * 10)) end,
         Get = function() return AimbotSettings.Smoothness end
     }
 
     UI.Slider(leftCol, "FOV", 1, 90, AimbotSettings.FOV, 4, function(v) AimbotSettings.FOV = v; updateFovCircle() end, "Aimbot_FOV")
     UI.Slider(leftCol, "Distance", 50, 1000, AimbotSettings.MaxDistance, 5, function(v) AimbotSettings.MaxDistance = v end, "Aimbot_Dist")
 
-    -- Fire Delay: от 1 до 50 и делим на 100, чтобы можно было выставить 0.5
+    -- Fire Delay: 0.01 - 0.5
     local fireDelaySlider = UI.Slider(rightCol, "Fire Delay", 1, 50, math.floor(AimbotSettings.AutoFireDelay * 100), 1, function(v) 
         AimbotSettings.AutoFireDelay = v / 100 
     end, "Aimbot_FireDelay")
     ConfigElements["Aimbot_FireDelay"] = {
-        Set = function(v) 
-            AimbotSettings.AutoFireDelay = v
-            fireDelaySlider:Set(math.floor(v * 100)) 
-        end,
+        Set = function(v) AimbotSettings.AutoFireDelay = v; fireDelaySlider:Set(math.floor(v * 100)) end,
         Get = function() return AimbotSettings.AutoFireDelay end
     }
 
