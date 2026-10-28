@@ -1,5 +1,5 @@
 --[[
-    MissWare Combat — Aimbot (v11 - CUSTOM DROPDOWN FIX)
+    MissWare Combat — Aimbot (v12 - BUG FIX)
 ]]
 
 local Players = game:GetService("Players")
@@ -14,8 +14,10 @@ local UI = _G.MissWare and _G.MissWare.UI
 if not UI then warn("[MissWare Aimbot] UI API not found") return end
 local new, corner, stroke, gradient = UI.New, UI.Corner, UI.Stroke, UI.Gradient
 local CFG = UI.CFG
-local SetConfig = UI.SetConfig
-local ConfigElements = UI.ConfigElements
+
+-- ИСПРАВЛЕНИЕ: Берем функции конфига безопасно
+local SetConfig = UI.SetConfig or _G.MissWare.SetConfig or function() end
+local ConfigElements = UI.ConfigElements or _G.MissWare.ConfigElements or {}
 
 local GlobalColorElements = _G.MissWare.GlobalColorElements
 local GlobalThemeElements = _G.MissWare.GlobalThemeElements
@@ -229,7 +231,7 @@ local function formatBind(k)
     return tostring(k)
 end
 
--- ========== CUSTOM DROPDOWN (ИСПРАВЛЕННЫЙ) ==========
+-- ========== CUSTOM DROPDOWN ==========
 local function createFixedDropdown(parent, text, options, default, order, callback, configKey)
     local holder = new("Frame", {
         Size = UDim2.new(1, 0, 0, 42),
@@ -242,7 +244,6 @@ local function createFixedDropdown(parent, text, options, default, order, callba
     corner(holder, 8)
     local hStroke = stroke(holder, CFG.TextDim, 1, 0.8)
     
-    -- Регистрируем в темах
     table.insert(GlobalThemeElements, { obj = holder, prop = "BackgroundColor3", base = "PanelLight" })
     table.insert(GlobalThemeElements, { obj = hStroke, prop = "Color", base = "TextDim" })
 
@@ -262,7 +263,7 @@ local function createFixedDropdown(parent, text, options, default, order, callba
     local btn = new("TextButton", {
         Size = UDim2.new(0.5, -14, 0, 26),
         Position = UDim2.new(0.5, 0, 0.5, -13),
-        BackgroundColor3 = CFG.Bg, -- Не прозрачный изначально
+        BackgroundColor3 = CFG.Bg,
         BackgroundTransparency = 0.1,
         Text = "  " .. tostring(default) .. "  ▼",
         TextColor3 = CFG.Accent,
@@ -286,12 +287,12 @@ local function createFixedDropdown(parent, text, options, default, order, callba
     local listFrame = new("ScrollingFrame", {
         Size = UDim2.new(1, 0, 0, 0),
         Position = UDim2.new(0, 0, 1, 5),
-        BackgroundColor3 = CFG.Bg, -- Не прозрачный
+        BackgroundColor3 = CFG.Bg,
         BackgroundTransparency = 0.05,
         BorderSizePixel = 0,
         ClipsDescendants = true,
         Visible = false,
-        ZIndex = 999, -- Поверх всего
+        ZIndex = 999,
         ScrollBarThickness = 0
     }, holder)
     corner(listFrame, 6)
@@ -303,13 +304,12 @@ local function createFixedDropdown(parent, text, options, default, order, callba
     new("UIListLayout", { Padding = UDim.new(0, 2), SortOrder = Enum.SortOrder.LayoutOrder }, listFrame)
     new("UIPadding", { PaddingTop = UDim.new(0, 4), PaddingBottom = UDim.new(0, 4) }, listFrame)
 
-    -- Блокиратор кликов (чтобы сквозь дропдаун нельзя было нажать)
     local blockInputFrame = new("TextButton", {
         Size = UDim2.new(1, 0, 1, 0),
         BackgroundTransparency = 1,
         Text = "",
         Visible = false,
-        ZIndex = 998, -- Чуть ниже самого списка, но выше всего остального
+        ZIndex = 998,
     }, _G.MissWare.Gui or parent)
 
     for i, opt in ipairs(options) do
@@ -325,7 +325,7 @@ local function createFixedDropdown(parent, text, options, default, order, callba
             TextXAlignment = Enum.TextXAlignment.Left,
             AutoButtonColor = false,
             LayoutOrder = i,
-            ZIndex = 1000 -- Поверх списка
+            ZIndex = 1000
         }, listFrame)
         corner(ob, 4)
         
@@ -351,7 +351,6 @@ local function createFixedDropdown(parent, text, options, default, order, callba
         if isOpen then
             blockInputFrame.Visible = true
             listFrame.Visible = true
-            -- Поднимаем список на самый верх при открытии
             listFrame.ZIndex = 999
             tween(listFrame, CFG.EaseFast, { Size = UDim2.new(1, 0, 0, #options * 26 + 8) })
         else
@@ -376,19 +375,19 @@ local function createFixedDropdown(parent, text, options, default, order, callba
     return returnObj
 end
 
-
 -- ========== AIMBOT CARD ==========
 local function createAimbotCard(parent)
+    -- Поднимаем ZIndex карточки, чтобы она была поверх других элементов
     local card = new("Frame", {
         Size = UDim2.new(1, -8, 0, 240), 
         BackgroundColor3 = CFG.Bg,
         BackgroundTransparency = 0.2, 
         BorderSizePixel = 0,
         LayoutOrder = 1,
-        ZIndex = 3,
+        ZIndex = 10,
     }, parent)
     corner(card, 10)
-    local cardStroke = stroke(card, CFG.Accent, 1, 0.5) -- Обводка карточки
+    local cardStroke = stroke(card, CFG.Accent, 1, 0.5)
     
     if GlobalThemeElements then
         table.insert(GlobalThemeElements, { obj = card, prop = "BackgroundColor3", base = "Bg" })
@@ -399,7 +398,7 @@ local function createAimbotCard(parent)
         Size = UDim2.new(1, -16, 0, 36),
         Position = UDim2.fromOffset(8, 4),
         BackgroundTransparency = 1,
-        ZIndex = 4,
+        ZIndex = 11,
     }, card)
 
     local titleLabel = new("TextLabel", {
@@ -410,7 +409,7 @@ local function createAimbotCard(parent)
         Font = UI.FontBold,
         TextSize = 14,
         TextXAlignment = Enum.TextXAlignment.Left,
-        ZIndex = 5,
+        ZIndex = 12,
     }, header)
     if GlobalThemeElements then
         table.insert(GlobalThemeElements, { obj = titleLabel, prop = "TextColor3", base = "Text" })
@@ -427,7 +426,7 @@ local function createAimbotCard(parent)
         Font = UI.FontBold,
         TextSize = 11,
         AutoButtonColor = false,
-        ZIndex = 5,
+        ZIndex = 12,
     }, header)
     corner(toggle, 4)
     local toggleStroke = stroke(toggle, CFG.TextDim, 1, 0.5)
@@ -467,7 +466,7 @@ local function createAimbotCard(parent)
         Font = UI.FontMed,
         TextSize = 10,
         AutoButtonColor = false,
-        ZIndex = 5,
+        ZIndex = 12,
     }, header)
     corner(bindBtn, 4)
     stroke(bindBtn, CFG.TextDim, 1, 0.6)
@@ -531,19 +530,17 @@ local function createAimbotCard(parent)
         Position = UDim2.fromOffset(8, 40),
         BackgroundTransparency = 1,
         ClipsDescendants = true,
-        ZIndex = 4,
+        ZIndex = 11,
     }, card)
 
-    local leftCol = new("Frame", { Size = UDim2.new(0.5, -4, 1, 0), BackgroundTransparency = 1, ZIndex = 4 }, content)
+    local leftCol = new("Frame", { Size = UDim2.new(0.5, -4, 1, 0), BackgroundTransparency = 1, ZIndex = 11 }, content)
     new("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 6) }, leftCol)
-    local rightCol = new("Frame", { Size = UDim2.new(0.5, -4, 1, 0), Position = UDim2.new(0.5, 4, 0, 0), BackgroundTransparency = 1, ZIndex = 4 }, content)
+    local rightCol = new("Frame", { Size = UDim2.new(0.5, -4, 1, 0), Position = UDim2.new(0.5, 4, 0, 0), BackgroundTransparency = 1, ZIndex = 11 }, content)
     new("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 6) }, rightCol)
 
-    -- Используем НАШ НОВЫЙ ДРОПДАУН
     createFixedDropdown(leftCol, "Aim Mode", {"FluxoPvP", "Classic", "CounterBlox"}, AimbotSettings.AimMode, 1, function(v) AimbotSettings.AimMode = v end, "Aimbot_AimMode")
     createFixedDropdown(leftCol, "Aim Part", {"Head", "Body", "Torso"}, AimbotSettings.AimPart, 2, function(v) AimbotSettings.AimPart = v end, "Aimbot_AimPart")
 
-    -- Smooth: 0.1 - 1.0
     local smoothSlider = UI.Slider(leftCol, "Smooth", 1, 10, math.floor(AimbotSettings.Smoothness * 10), 3, function(v) 
         AimbotSettings.Smoothness = v / 10 
     end, "Aimbot_Smooth")
@@ -555,7 +552,6 @@ local function createAimbotCard(parent)
     UI.Slider(leftCol, "FOV", 1, 90, AimbotSettings.FOV, 4, function(v) AimbotSettings.FOV = v; updateFovCircle() end, "Aimbot_FOV")
     UI.Slider(leftCol, "Distance", 50, 1000, AimbotSettings.MaxDistance, 5, function(v) AimbotSettings.MaxDistance = v end, "Aimbot_Dist")
 
-    -- Fire Delay: 0.01 - 0.5
     local fireDelaySlider = UI.Slider(rightCol, "Fire Delay", 1, 50, math.floor(AimbotSettings.AutoFireDelay * 100), 1, function(v) 
         AimbotSettings.AutoFireDelay = v / 100 
     end, "Aimbot_FireDelay")
