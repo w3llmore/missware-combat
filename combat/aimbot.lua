@@ -1,11 +1,12 @@
 --[[
-    MissWare Combat — Aimbot (v4 - FULL)
-    Логика из сырого кода + UI в стиле MissWare + все фиксы
+    MissWare Combat — Aimbot (v5 - FULL CARD)
+    Логика из сырого кода + карточка в стиле MissWare + BindKey + AutoStop
 ]]
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
+local UserInputService = game:GetService("UserInputService")
 local Player = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
 local Drawing = Drawing or nil
@@ -39,7 +40,6 @@ local AimbotSettings = {
 -- ========== AIMBOT LOGIC ==========
 local fovCircle = nil
 local aimbotConnection = nil
-local autoFireConnection = nil
 local lastFireTime = 0
 local currentTarget = nil
 local currentTargetPlayer = nil
@@ -255,98 +255,89 @@ end
 
 local function startAimbot()
     if aimbotConnection then aimbotConnection:Disconnect(); aimbotConnection = nil end
-    if autoFireConnection then autoFireConnection:Disconnect(); autoFireConnection = nil end
     currentTarget, currentTargetPlayer, lastFireTime = nil, nil, 0
     createFovCircle()
     aimbotConnection = RunService.RenderStepped:Connect(mainLoop)
-    autoFireConnection = nil
 end
 
 local function stopAimbot()
     if aimbotConnection then aimbotConnection:Disconnect(); aimbotConnection = nil end
-    if autoFireConnection then autoFireConnection:Disconnect(); autoFireConnection = nil end
     if fovCircle then pcall(function() fovCircle.Visible = false end) end
     currentTarget, currentTargetPlayer, lastFireTime = nil, nil, 0
 end
 
--- ========== UI CARD ==========
-function _G.MissWare.CreateAimbotUI(parent)
-    -- 1. Заголовок
-    local holder = new("Frame", {
-        Size = UDim2.new(1, 0, 0, 24),
-        BackgroundTransparency = 1,
+-- ========== HELPER: форматирование бинда ==========
+local function formatBind(k)
+    if not k then return "Bind" end
+    if typeof(k) == "EnumItem" then
+        if k.EnumType == Enum.KeyCode then return k.Name end
+        if k == Enum.UserInputType.MouseButton1 then return "M1" end
+        if k == Enum.UserInputType.MouseButton2 then return "M2" end
+        return k.Name
+    end
+    return tostring(k)
+end
+
+-- ========== AIMBOT CARD ==========
+local function createAimbotCard(parent)
+    local card = new("Frame", {
+        Size = UDim2.fromOffset(225, 375),
+        BackgroundColor3 = CFG.PanelLight,
+        BackgroundTransparency = 0.2,
+        BorderSizePixel = 0,
         LayoutOrder = 1,
         ZIndex = 3,
     }, parent)
-    local title = new("TextLabel", {
-        Size = UDim2.new(0, 200, 1, 0),
-        BackgroundTransparency = 1,
-        Text = "AIMBOT",
-        TextColor3 = CFG.AccentSoft,
-        Font = UI.FontBold,
-        TextSize = 11,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        ZIndex = 4,
-    }, holder)
-    if GlobalColorElements then
-        table.insert(GlobalColorElements, { obj = title, prop = "TextColor3", base = "AccentSoft" })
-    end
-
-    -- 2. Toggle (Enabled)
-    local toggleHolder = new("Frame", {
-        Size = UDim2.new(1, 0, 0, 42),
-        BackgroundColor3 = CFG.PanelLight,
-        BackgroundTransparency = 0.5,
-        BorderSizePixel = 0,
-        LayoutOrder = 2,
-        ZIndex = 3,
-    }, parent)
-    corner(toggleHolder, 8)
-    stroke(toggleHolder, CFG.TextDim, 1, 0.8)
+    corner(card, 10)
+    stroke(card, CFG.Accent, 1, 0.6)
     if GlobalThemeElements then
-        table.insert(GlobalThemeElements, { obj = toggleHolder, prop = "BackgroundColor3", base = "PanelLight" })
+        table.insert(GlobalThemeElements, { obj = card, prop = "BackgroundColor3", base = "PanelLight" })
     end
 
-    local toggleLabel = new("TextLabel", {
-        Size = UDim2.new(0.5, -14, 1, 0),
-        Position = UDim2.fromOffset(14, 0),
+    -- ===== HEADER =====
+    local header = new("Frame", {
+        Size = UDim2.new(1, -16, 0, 36),
+        Position = UDim2.fromOffset(8, 4),
         BackgroundTransparency = 1,
-        Text = "Enabled",
+        ZIndex = 4,
+    }, card)
+
+    local titleLabel = new("TextLabel", {
+        Size = UDim2.new(0, 100, 1, 0),
+        BackgroundTransparency = 1,
+        Text = "Aimbot",
         TextColor3 = CFG.Text,
-        Font = UI.FontMed,
-        TextSize = 13,
+        Font = UI.FontBold,
+        TextSize = 14,
         TextXAlignment = Enum.TextXAlignment.Left,
-        ZIndex = 4,
-    }, toggleHolder)
+        ZIndex = 5,
+    }, header)
     if GlobalThemeElements then
-        table.insert(GlobalThemeElements, { obj = toggleLabel, prop = "TextColor3", base = "Text" })
+        table.insert(GlobalThemeElements, { obj = titleLabel, prop = "TextColor3", base = "Text" })
     end
 
-    local toggleBtn = new("TextButton", {
-        Size = UDim2.fromOffset(48, 24),
-        Position = UDim2.new(0.5, 0, 0.5, -12),
-        BackgroundColor3 = CFG.Bg,
-        BackgroundTransparency = 0.3,
+    -- ===== TOGGLE =====
+    local toggle = new("TextButton", {
+        Size = UDim2.fromOffset(44, 22),
+        Position = UDim2.new(1, -100, 0, 7),
+        BackgroundColor3 = CFG.PanelHover,
+        BackgroundTransparency = 0,
         Text = "OFF",
         TextColor3 = CFG.Text,
         Font = UI.FontBold,
-        TextSize = 12,
+        TextSize = 11,
         AutoButtonColor = false,
-        ZIndex = 4,
-    }, toggleHolder)
-    corner(toggleBtn, 6)
-    stroke(toggleBtn, CFG.Accent, 1, 0.5)
-    if GlobalThemeElements then
-        table.insert(GlobalThemeElements, { obj = toggleBtn, prop = "BackgroundColor3", base = "Bg" })
-    end
-    if GlobalColorElements then
-        table.insert(GlobalColorElements, { obj = toggleBtn, prop = "TextColor3", base = "Accent" })
-    end
+        ZIndex = 5,
+    }, header)
+    corner(toggle, 4)
+    local toggleStroke = stroke(toggle, CFG.TextDim, 1, 0.5)
 
     local function updateToggleVisual()
-        toggleBtn.Text = AimbotSettings.Enabled and "ON" or "OFF"
-        toggleBtn.TextColor3 = AimbotSettings.Enabled and CFG.Accent or CFG.Text
-        toggleBtn.BackgroundTransparency = AimbotSettings.Enabled and 0.1 or 0.3
+        toggle.Text = AimbotSettings.Enabled and "ON" or "OFF"
+        toggle.TextColor3 = AimbotSettings.Enabled and CFG.Accent or CFG.Text
+        toggle.BackgroundTransparency = AimbotSettings.Enabled and 0.1 or 0
+        toggleStroke.Color = AimbotSettings.Enabled and CFG.Accent or CFG.TextDim
+        toggleStroke.Transparency = AimbotSettings.Enabled and 0 or 0.5
     end
     updateToggleVisual()
 
@@ -357,7 +348,7 @@ function _G.MissWare.CreateAimbotUI(parent)
         if v then startAimbot() else stopAimbot() end
     end
 
-    toggleBtn.MouseButton1Click:Connect(function()
+    toggle.MouseButton1Click:Connect(function()
         setEnabled(not AimbotSettings.Enabled)
     end)
 
@@ -367,44 +358,158 @@ function _G.MissWare.CreateAimbotUI(parent)
         Get = function() return AimbotSettings.Enabled end,
     }
 
-    -- 3. Остальные компоненты (порядок как в твоём сыром коде)
-    UI.Dropdown(parent, "Aim Mode", {"Classic", "CounterBlox"}, AimbotSettings.AimMode, 3, function(v)
+    -- ===== BIND =====
+    local bindBtn = new("TextButton", {
+        Size = UDim2.fromOffset(50, 22),
+        Position = UDim2.new(1, -50, 0, 7),
+        BackgroundColor3 = CFG.PanelHover,
+        BackgroundTransparency = 0.2,
+        Text = formatBind(AimbotSettings.BindKey),
+        TextColor3 = CFG.TextDim,
+        Font = UI.FontMed,
+        TextSize = 10,
+        AutoButtonColor = false,
+        ZIndex = 5,
+    }, header)
+    corner(bindBtn, 4)
+    stroke(bindBtn, CFG.TextDim, 1, 0.6)
+    if GlobalThemeElements then
+        table.insert(GlobalThemeElements, { obj = bindBtn, prop = "BackgroundColor3", base = "PanelHover" })
+        table.insert(GlobalThemeElements, { obj = bindBtn, prop = "TextColor3", base = "TextDim" })
+    end
+
+    local bindingAimbot = false
+
+    local function applyBindVisual()
+        bindBtn.Text = formatBind(AimbotSettings.BindKey)
+        bindBtn.TextColor3 = AimbotSettings.BindKey and CFG.Accent or CFG.TextDim
+    end
+
+    bindBtn.MouseButton1Click:Connect(function()
+        if bindingAimbot then return end
+        bindingAimbot = true
+        bindBtn.Text = "..."
+        bindBtn.TextColor3 = CFG.AccentSoft
+    end)
+
+    UserInputService.InputBegan:Connect(function(input, gp)
+        if not bindingAimbot or gp then return end
+        if input.UserInputType == Enum.UserInputType.Keyboard then
+            if input.KeyCode ~= Enum.KeyCode.Unknown then
+                AimbotSettings.BindKey = input.KeyCode
+                UI.SetConfig("Aimbot_BindKey", input.KeyCode.Name)
+                bindingAimbot = false
+                applyBindVisual()
+            end
+        elseif input.UserInputType == Enum.UserInputType.MouseButton1 then
+            AimbotSettings.BindKey = Enum.UserInputType.MouseButton1
+            UI.SetConfig("Aimbot_BindKey", "M1")
+            bindingAimbot = false
+            applyBindVisual()
+        elseif input.UserInputType == Enum.UserInputType.MouseButton2 then
+            AimbotSettings.BindKey = Enum.UserInputType.MouseButton2
+            UI.SetConfig("Aimbot_BindKey", "M2")
+            bindingAimbot = false
+            applyBindVisual()
+        end
+    end)
+
+    -- ConfigElement для BindKey
+    UI.SetConfig("Aimbot_BindKey", AimbotSettings.BindKey and formatBind(AimbotSettings.BindKey) or nil)
+    UI.ConfigElements["Aimbot_BindKey"] = {
+        Set = function(v)
+            if v == nil or v == "" then
+                AimbotSettings.BindKey = nil
+            elseif v == "M1" then
+                AimbotSettings.BindKey = Enum.UserInputType.MouseButton1
+            elseif v == "M2" then
+                AimbotSettings.BindKey = Enum.UserInputType.MouseButton2
+            else
+                local ok, k = pcall(function() return Enum.KeyCode[v] end)
+                if ok and k then AimbotSettings.BindKey = k end
+            end
+            applyBindVisual()
+        end,
+        Get = function()
+            return AimbotSettings.BindKey and formatBind(AimbotSettings.BindKey) or nil
+        end,
+    }
+
+    -- ===== CONTENT =====
+    local content = new("Frame", {
+        Size = UDim2.new(1, -16, 1, -44),
+        Position = UDim2.fromOffset(8, 40),
+        BackgroundTransparency = 1,
+        ZIndex = 4,
+    }, card)
+    new("UIListLayout", {
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Padding = UDim.new(0, 6),
+    }, content)
+
+    UI.Dropdown(content, "Aim Mode", {"FluxoPvP", "Classic", "CounterBlox"}, AimbotSettings.AimMode, 1, function(v)
         AimbotSettings.AimMode = v
     end, "Aimbot_AimMode")
 
-    UI.Dropdown(parent, "Aim Part", {"Head", "Body", "Torso"}, AimbotSettings.AimPart, 4, function(v)
+    UI.Dropdown(content, "Aim Part", {"Head", "Body", "Torso"}, AimbotSettings.AimPart, 2, function(v)
         AimbotSettings.AimPart = v
     end, "Aimbot_AimPart")
 
-    UI.Slider(parent, "FOV", 10, 360, AimbotSettings.FOV, 5, function(v)
+    UI.Slider(content, "FOV", 1, 90, AimbotSettings.FOV, 3, function(v)
         AimbotSettings.FOV = v; updateFovCircle()
     end, "Aimbot_FOV")
 
-    UI.Slider(parent, "Smooth", 0.1, 1.0, AimbotSettings.Smoothness, 6, function(v)
+    UI.Slider(content, "Smooth", 0.1, 1.0, AimbotSettings.Smoothness, 4, function(v)
         AimbotSettings.Smoothness = v
     end, "Aimbot_Smooth")
 
-    UI.Slider(parent, "Distance", 50, 1000, AimbotSettings.MaxDistance, 7, function(v)
+    UI.Slider(content, "Distance", 50, 1000, AimbotSettings.MaxDistance, 5, function(v)
         AimbotSettings.MaxDistance = v
     end, "Aimbot_Dist")
 
-    UI.Slider(parent, "Fire Delay", 0.01, 0.5, AimbotSettings.AutoFireDelay, 8, function(v)
+    UI.Slider(content, "Fire Delay", 0.01, 0.5, AimbotSettings.AutoFireDelay, 6, function(v)
         AimbotSettings.AutoFireDelay = v
     end, "Aimbot_FireDelay")
 
-    UI.Checkbox(parent, "Silent Aim", AimbotSettings.SilentAim, 9, function(v)
+    UI.Checkbox(content, "Silent Aim", AimbotSettings.SilentAim, 7, function(v)
         AimbotSettings.SilentAim = v; updateFovCircle()
     end, "Aimbot_SilentAim")
 
-    UI.Checkbox(parent, "Auto Fire", AimbotSettings.AutoFire, 10, function(v)
+    UI.Checkbox(content, "Auto Fire", AimbotSettings.AutoFire, 8, function(v)
         AimbotSettings.AutoFire = v
     end, "Aimbot_AutoFire")
 
-    -- 🔥 ВОТ ОН — AUTO STOP, которого не хватало
-    UI.Checkbox(parent, "Auto Stop", AimbotSettings.AutoStop, 11, function(v)
+    UI.Checkbox(content, "Auto Stop", AimbotSettings.AutoStop, 9, function(v)
         AimbotSettings.AutoStop = v
     end, "Aimbot_AutoStop")
 end
+
+-- ========== PUBLIC API ==========
+function _G.MissWare.CreateAimbotUI(parent)
+    createAimbotCard(parent)
+end
+
+-- ========== BIND KEY HANDLER (включает/выключает по нажатию) ==========
+UserInputService.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    local k = AimbotSettings.BindKey
+    if not k then return end
+    local pressed = false
+    if typeof(k) == "EnumItem" and k.EnumType == Enum.KeyCode then
+        pressed = (input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == k)
+    elseif k == Enum.UserInputType.MouseButton1 then
+        pressed = (input.UserInputType == Enum.UserInputType.MouseButton1)
+    elseif k == Enum.UserInputType.MouseButton2 then
+        pressed = (input.UserInputType == Enum.UserInputType.MouseButton2)
+    end
+    if pressed then
+        AimbotSettings.Enabled = not AimbotSettings.Enabled
+        UI.SetConfig("Aimbot_Enabled", AimbotSettings.Enabled)
+        if AimbotSettings.Enabled then startAimbot() else stopAimbot() end
+        -- обновляем визуал кнопки, если карточка создана
+        if _G.MissWare.UpdateAimbotToggle then _G.MissWare.UpdateAimbotToggle() end
+    end
+end)
 
 _G.MissWare.AimbotSettings = AimbotSettings
 _G.MissWare.startAimbot = startAimbot
