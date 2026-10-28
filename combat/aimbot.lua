@@ -1,5 +1,5 @@
 --[[
-    MissWare Combat — Aimbot (v14 - FINAL)
+    MissWare Combat — Aimbot (v15 - FIXED DROPDOWN)
 ]]
 
 local Players = game:GetService("Players")
@@ -229,6 +229,154 @@ local function formatBind(k)
     return tostring(k)
 end
 
+-- ========== CUSTOM DROPDOWN (ПОВЕРХ ВСЕГО) ==========
+local function createFixedDropdown(parent, text, options, default, order, callback, configKey)
+    local holder = new("Frame", {
+        Size = UDim2.new(1, 0, 0, 42),
+        BackgroundColor3 = CFG.PanelLight,
+        BackgroundTransparency = 0.5,
+        BorderSizePixel = 0,
+        LayoutOrder = order or 1,
+        ZIndex = 3,
+    }, parent)
+    corner(holder, 8)
+    local hStroke = stroke(holder, CFG.TextDim, 1, 0.8)
+    
+    table.insert(GlobalThemeElements, { obj = holder, prop = "BackgroundColor3", base = "PanelLight" })
+    table.insert(GlobalColorElements, { obj = hStroke, prop = "Color", base = "Accent" })
+
+    local txt = new("TextLabel", {
+        Size = UDim2.new(0.5, -14, 1, 0),
+        Position = UDim2.fromOffset(14, 0),
+        BackgroundTransparency = 1,
+        Text = text,
+        TextColor3 = CFG.Text,
+        Font = UI.FontMed,
+        TextSize = 13,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 4
+    }, holder)
+    table.insert(GlobalThemeElements, { obj = txt, prop = "TextColor3", base = "Text" })
+
+    local btn = new("TextButton", {
+        Size = UDim2.new(0.5, -14, 0, 26),
+        Position = UDim2.new(0.5, 0, 0.5, -13),
+        BackgroundColor3 = CFG.Bg,
+        BackgroundTransparency = 0.1,
+        Text = "  " .. tostring(default) .. "  ▼",
+        TextColor3 = CFG.Accent,
+        Font = UI.FontBold,
+        TextSize = 12,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        AutoButtonColor = false,
+        ZIndex = 5
+    }, holder)
+    corner(btn, 6)
+    local btnStroke = stroke(btn, CFG.TextDim, 1, 0.6)
+    
+    table.insert(GlobalThemeElements, { obj = btn, prop = "BackgroundColor3", base = "Bg" })
+    table.insert(GlobalColorElements, { obj = btn, prop = "TextColor3", base = "Accent" })
+    table.insert(GlobalColorElements, { obj = btnStroke, prop = "Color", base = "Accent" })
+
+    local state = default
+    if configKey then SetConfig(configKey, state) end
+
+    local isOpen = false
+    
+    -- СОЗДАЕМ СПИСОК В КОРНЕ GUI, ЧТОБЫ ОН БЫЛ ПОВЕРХ ВСЕГО
+    local rootGui = _G.MissWare.Gui or parent
+    local listFrame = new("ScrollingFrame", {
+        Size = UDim2.new(0, btn.AbsoluteSize.X, 0, 0),
+        Position = UDim2.new(0, 0, 0, 0),
+        BackgroundColor3 = CFG.Bg, -- НЕПРОЗРАЧНЫЙ ФОН
+        BackgroundTransparency = 0, 
+        BorderSizePixel = 0,
+        ClipsDescendants = true,
+        Visible = false,
+        ZIndex = 999,
+        ScrollBarThickness = 0
+    }, rootGui)
+    corner(listFrame, 6)
+    local listStroke = stroke(listFrame, CFG.Accent, 1, 0.8) -- Обводка
+    table.insert(GlobalThemeElements, { obj = listFrame, prop = "BackgroundColor3", base = "Bg" })
+    table.insert(GlobalColorElements, { obj = listStroke, prop = "Color", base = "Accent" })
+    
+    new("UIListLayout", { Padding = UDim.new(0, 2), SortOrder = Enum.SortOrder.LayoutOrder }, listFrame)
+    new("UIPadding", { PaddingTop = UDim.new(0, 4), PaddingBottom = UDim.new(0, 4) }, listFrame)
+
+    local blockInputFrame = new("TextButton", {
+        Size = UDim2.new(1, 0, 1, 0),
+        BackgroundTransparency = 1,
+        Text = "",
+        Visible = false,
+        ZIndex = 998,
+    }, rootGui)
+
+    for i, opt in ipairs(options) do
+        local ob = new("TextButton", {
+            Size = UDim2.new(1, -8, 0, 24),
+            Position = UDim2.fromOffset(4, 0),
+            BackgroundColor3 = CFG.Accent,
+            BackgroundTransparency = 1,
+            Text = "  " .. tostring(opt),
+            TextColor3 = CFG.Text,
+            Font = UI.FontMed,
+            TextSize = 12,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            AutoButtonColor = false,
+            LayoutOrder = i,
+            ZIndex = 1000
+        }, listFrame)
+        corner(ob, 4)
+        table.insert(GlobalThemeElements, { obj = ob, prop = "TextColor3", base = "Text" })
+        
+        ob.MouseEnter:Connect(function() tween(ob, CFG.EaseFast, { BackgroundTransparency = 0.7 }) end)
+        ob.MouseLeave:Connect(function() tween(ob, CFG.EaseFast, { BackgroundTransparency = 1 }) end)
+
+        ob.MouseButton1Click:Connect(function()
+            state = opt
+            btn.Text = "  " .. tostring(opt) .. "  ▼"
+            if configKey then SetConfig(configKey, state) end
+            if callback then callback(state) end
+            isOpen = false
+            blockInputFrame.Visible = false
+            tween(listFrame, CFG.EaseFast, { Size = UDim2.new(0, btn.AbsoluteSize.X, 0, 0) })
+            task.delay(0.2, function() if not isOpen then listFrame.Visible = false end end)
+        end)
+    end
+
+    btn.MouseButton1Click:Connect(function()
+        isOpen = not isOpen
+        if isOpen then
+            -- Позиционируем список прямо под кнопкой
+            listFrame.Position = UDim2.new(0, btn.AbsolutePosition.X, 0, btn.AbsolutePosition.Y + btn.AbsoluteSize.Y + 5)
+            listFrame.Size = UDim2.new(0, btn.AbsoluteSize.X, 0, 0)
+            
+            blockInputFrame.Visible = true
+            listFrame.Visible = true
+            tween(listFrame, CFG.EaseFast, { Size = UDim2.new(0, btn.AbsoluteSize.X, 0, #options * 26 + 8) })
+        else
+            blockInputFrame.Visible = false
+            tween(listFrame, CFG.EaseFast, { Size = UDim2.new(0, btn.AbsoluteSize.X, 0, 0) })
+            task.delay(0.2, function() if not isOpen then listFrame.Visible = false end end)
+        end
+    end)
+
+    blockInputFrame.MouseButton1Click:Connect(function()
+        isOpen = false
+        blockInputFrame.Visible = false
+        tween(listFrame, CFG.EaseFast, { Size = UDim2.new(0, btn.AbsoluteSize.X, 0, 0) })
+        task.delay(0.2, function() if not isOpen then listFrame.Visible = false end end)
+    end)
+
+    local returnObj = { 
+        Set = function(v) state = v; btn.Text = "  " .. tostring(v) .. "  ▼"; if configKey then SetConfig(configKey, v) end end, 
+        Get = function() return state end
+    }
+    if configKey then ConfigElements[configKey] = returnObj end
+    return returnObj
+end
+
 -- ========== AIMBOT CARD ==========
 local function createAimbotCard(parent)
     local card = new("Frame", {
@@ -372,7 +520,7 @@ local function createAimbotCard(parent)
         Size = UDim2.new(1, -16, 1, -44),
         Position = UDim2.fromOffset(8, 40),
         BackgroundTransparency = 1,
-        ClipsDescendants = true,
+        ClipsDescendants = true, -- ОБРЕЗАЕТ ДЕТЕЙ, НО НАШ ДРОПДАУН ВЫШЕ ЭТОГО
         ZIndex = 11,
     }, card)
 
@@ -381,9 +529,8 @@ local function createAimbotCard(parent)
     local rightCol = new("Frame", { Size = UDim2.new(0.5, -4, 1, 0), Position = UDim2.new(0.5, 4, 0, 0), BackgroundTransparency = 1, ZIndex = 11 }, content)
     new("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 6) }, rightCol)
 
-    -- ИСПОЛЬЗУЕМ СТАНДАРТНЫЙ DROPDOWN
-    local drop1 = UI.Dropdown(leftCol, "Aim Mode", {"FluxoPvP", "Classic", "CounterBlox"}, AimbotSettings.AimMode, 1, function(v) AimbotSettings.AimMode = v end, "Aimbot_AimMode")
-    local drop2 = UI.Dropdown(leftCol, "Aim Part", {"Head", "Body", "Torso"}, AimbotSettings.AimPart, 2, function(v) AimbotSettings.AimPart = v end, "Aimbot_AimPart")
+    createFixedDropdown(leftCol, "Aim Mode", {"FluxoPvP", "Classic", "CounterBlox"}, AimbotSettings.AimMode, 1, function(v) AimbotSettings.AimMode = v end, "Aimbot_AimMode")
+    createFixedDropdown(leftCol, "Aim Part", {"Head", "Body", "Torso"}, AimbotSettings.AimPart, 2, function(v) AimbotSettings.AimPart = v end, "Aimbot_AimPart")
 
     local smoothSlider = UI.Slider(leftCol, "Smooth", 1, 10, math.floor(AimbotSettings.Smoothness * 10), 3, function(v) 
         AimbotSettings.Smoothness = v / 10 
