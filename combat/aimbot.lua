@@ -1,6 +1,6 @@
 --[[
-    MissWare Combat — Aimbot (v6 - FULL CARD + 2 COLUMNS)
-    Карточка = половина ширины GUI, настройки в 2 столбика, скролл работает
+    MissWare Combat — Aimbot (v7 - FULL WIDTH CARD)
+    Карточка = 100% ширины GUI, 2 столбика настроек
 ]]
 
 local Players = game:GetService("Players")
@@ -280,9 +280,9 @@ end
 
 -- ========== AIMBOT CARD ==========
 local function createAimbotCard(parent)
-    -- Карточка = половина ширины родителя, фикс. высота под 2 столбика
+    -- Карточка растягивается на всю ширину (1, -8), но имеет фиксированную высоту (210)
     local card = new("Frame", {
-        Size = UDim2.new(0.5, -8, 0, 430),
+        Size = UDim2.new(1, -8, 0, 210),
         BackgroundColor3 = CFG.PanelLight,
         BackgroundTransparency = 0.2,
         BorderSizePixel = 0,
@@ -504,24 +504,12 @@ local function createAimbotCard(parent)
         AimbotSettings.AutoStop = v
     end, "Aimbot_AutoStop")
 
-    -- Обновление визуала toggle извне (для BindKey-хендлера)
     _G.MissWare.UpdateAimbotToggle = updateToggleVisual
 end
 
 -- ========== PUBLIC API ==========
 function _G.MissWare.CreateAimbotUI(parent)
-    local row = new("Frame", {
-        Size = UDim2.new(1, 0, 0, 430),
-        BackgroundTransparency = 1,
-        LayoutOrder = 2,
-        ZIndex = 3,
-    }, parent)
-    new("UIListLayout", {
-        Padding = UDim.new(0, 8),
-        FillDirection = Enum.FillDirection.Horizontal,
-        SortOrder = Enum.SortOrder.LayoutOrder,
-    }, row)
-    createAimbotCard(row)
+    createAimbotCard(parent)
 end
 
 -- ========== BIND KEY HANDLER ==========
