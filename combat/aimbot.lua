@@ -1,5 +1,5 @@
 --[[
-    MissWare Combat — Aimbot (v16 - FINAL FIX)
+    MissWare Combat — Aimbot (v17 - NO ERRORS)
 ]]
 
 local Players = game:GetService("Players")
@@ -15,9 +15,9 @@ if not UI then warn("[MissWare Aimbot] UI API not found") return end
 local new, corner, stroke, gradient = UI.New, UI.Corner, UI.Stroke, UI.Gradient
 local CFG = UI.CFG
 
--- ФИКС ОШИБКИ: Берем функции конфига напрямую из UI (куда ты их добавил в основном скрипте)
-local SetConfig = UI.SetConfig or function() end
-local ConfigElements = UI.ConfigElements or {}
+-- ЖЕЛЕЗОБЕТОННАЯ ЗАЩИТА ОТ NIL
+local SetConfig = UI.SetConfig or (_G.MissWare and _G.MissWare.SetConfig) or function() end
+local ConfigElements = UI.ConfigElements or (_G.MissWare and _G.MissWare.ConfigElements) or {}
 
 local GlobalColorElements = _G.MissWare.GlobalColorElements or {}
 local GlobalThemeElements = _G.MissWare.GlobalThemeElements or {}
@@ -231,7 +231,7 @@ local function formatBind(k)
     return tostring(k)
 end
 
--- ========== CUSTOM DROPDOWN (ПОВЕРХ ВСЕГО) ==========
+-- ========== CUSTOM DROPDOWN ==========
 local function createFixedDropdown(parent, text, options, default, order, callback, configKey)
     local holder = new("Frame", {
         Size = UDim2.new(1, 0, 0, 42),
@@ -284,13 +284,11 @@ local function createFixedDropdown(parent, text, options, default, order, callba
     if configKey then SetConfig(configKey, state) end
 
     local isOpen = false
-    
-    -- СОЗДАЕМ СПИСОК В КОРНЕ GUI (чтобы он был поверх всей карточки)
     local rootGui = _G.MissWare.Gui or parent
     local listFrame = new("ScrollingFrame", {
         Size = UDim2.new(0, btn.AbsoluteSize.X, 0, 0),
         Position = UDim2.new(0, 0, 0, 0),
-        BackgroundColor3 = CFG.Bg, -- НЕПРОЗРАЧНЫЙ ФОН
+        BackgroundColor3 = CFG.Bg,
         BackgroundTransparency = 0, 
         BorderSizePixel = 0,
         ClipsDescendants = true,
@@ -299,7 +297,7 @@ local function createFixedDropdown(parent, text, options, default, order, callba
         ScrollBarThickness = 0
     }, rootGui)
     corner(listFrame, 6)
-    local listStroke = stroke(listFrame, CFG.Accent, 1, 0.8) -- Обводка
+    local listStroke = stroke(listFrame, CFG.Accent, 1, 0.8)
     table.insert(GlobalThemeElements, { obj = listFrame, prop = "BackgroundColor3", base = "Bg" })
     table.insert(GlobalColorElements, { obj = listStroke, prop = "Color", base = "Accent" })
     
