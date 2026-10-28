@@ -1,5 +1,6 @@
 --[[
-    MissWare Combat — Aimbot (v9 - FIXED)
+    MissWare Combat — Aimbot (v10 - STABLE)
+    Исправлены: дропдауны, слайдеры, цвета, ZIndex
 ]]
 
 local Players = game:GetService("Players")
@@ -53,9 +54,7 @@ end
 
 local function isTeammate(plr)
     if not plr or not Player then return false end
-    if plr.Team and Player.Team and plr.Team == Player.Team then
-        return true
-    end
+    if plr.Team and Player.Team and plr.Team == Player.Team then return true end
     return false
 end
 
@@ -67,9 +66,7 @@ local function isVisible(targetPart)
     params.FilterType = Enum.RaycastFilterType.Exclude
     params.FilterDescendantsInstances = {Player.Character, targetPart}
     local result = Workspace:Raycast(origin, direction, params)
-    return not result
-        or result.Instance == targetPart
-        or result.Instance:IsDescendantOf(targetPart.Parent)
+    return not result or result.Instance == targetPart or result.Instance:IsDescendantOf(targetPart.Parent)
 end
 
 local function getTargetPart(char)
@@ -88,9 +85,7 @@ local function getTargetPart(char)
 end
 
 local function getClosestEnemy()
-    if not AimbotSettings.Enabled then return nil end
-    if not Camera then return nil end
-
+    if not AimbotSettings.Enabled or not Camera then return nil end
     local cp = Camera.CFrame.Position
     local cx, cy = Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2
     local best, bestScore, bestPlayer = nil, math.huge, nil
@@ -99,52 +94,42 @@ local function getClosestEnemy()
     local checkTeam = (AimbotSettings.AimMode == "CounterBlox")
 
     for _, plr in ipairs(Players:GetPlayers()) do
-        if plr == Player then continue end
-        if not isPlayerAlive(plr) then continue end
-        if checkTeam and isTeammate(plr) then continue end
-
-        local char = plr.Character
-        if not char then continue end
-
-        local part = getTargetPart(char)
-        if not part or not isVisible(part) then continue end
-
-        local pos = part.Position
-        local dist = (pos - cp).Magnitude
-        if dist > AimbotSettings.MaxDistance then continue end
-
-        local screenPos = Camera:WorldToViewportPoint(pos)
-        if not screenPos then continue end
-
-        local dx, dy = screenPos.X - cx, screenPos.Y - cy
-        local fovDist = math.sqrt(dx * dx + dy * dy)
-
-        if fovDist <= maxFov and fovDist < bestScore then
-            bestScore, best, bestPlayer = fovDist, part, plr
+        if plr ~= Player and isPlayerAlive(plr) and not (checkTeam and isTeammate(plr)) then
+            local char = plr.Character
+            if char then
+                local part = getTargetPart(char)
+                if part and isVisible(part) then
+                    local pos = part.Position
+                    local dist = (pos - cp).Magnitude
+                    if dist <= AimbotSettings.MaxDistance then
+                        local screenPos = Camera:WorldToViewportPoint(pos)
+                        if screenPos then
+                            local dx, dy = screenPos.X - cx, screenPos.Y - cy
+                            local fovDist = math.sqrt(dx * dx + dy * dy)
+                            if fovDist <= maxFov and fovDist < bestScore then
+                                bestScore, best, bestPlayer = fovDist, part, plr
+                            end
+                        end
+                    end
+                end
+            end
         end
     end
-
     if best then currentTargetPlayer = bestPlayer end
     return best
 end
 
 local function applyAutoStop()
-    if not AimbotSettings.AutoStop then return end
-    if not AimbotSettings.Enabled then return end
-    if not currentTarget then return end
-
+    if not AimbotSettings.AutoStop or not AimbotSettings.Enabled or not currentTarget then return end
     local char = Player.Character
     if not char then return end
     local root = char:FindFirstChild("HumanoidRootPart")
     if not root then return end
     local humanoid = char:FindFirstChild("Humanoid")
     root.Velocity = Vector3.new(0, root.Velocity.Y, 0)
-
     if humanoid then
         local state = humanoid:GetState()
-        if state == Enum.HumanoidStateType.Running
-            or state == Enum.HumanoidStateType.Sprinting
-            or state == Enum.HumanoidStateType.Walking then
+        if state == Enum.HumanoidStateType.Running or state == Enum.HumanoidStateType.Sprinting or state == Enum.HumanoidStateType.Walking then
             humanoid:MoveTo(root.Position)
         end
     end
@@ -155,12 +140,8 @@ function createFovCircle()
     if fovCircle then pcall(function() fovCircle:Remove() end); fovCircle = nil end
     pcall(function()
         fovCircle = Drawing.new("Circle")
-        fovCircle.Visible = false
-        fovCircle.Radius = 100
-        fovCircle.Thickness = 2
-        fovCircle.Color = CFG.Accent
-        fovCircle.Filled = false
-        fovCircle.NumSides = 60
+        fovCircle.Visible, fovCircle.Radius, fovCircle.Thickness = false, 100, 2
+        fovCircle.Color, fovCircle.Filled, fovCircle.NumSides = CFG.Accent, false, 60
         fovCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
     end)
 end
@@ -171,12 +152,7 @@ function updateFovCircle()
         local vs = Camera.ViewportSize
         local cx, cy = vs.X / 2, vs.Y / 2
         fovCircle.Position = Vector2.new(cx, cy)
-
-        if AimbotSettings.SilentAim then
-            fovCircle.Visible = false
-            return
-        end
-
+        if AimbotSettings.SilentAim then fovCircle.Visible = false return end
         local aimRad = math.rad(AimbotSettings.FOV) / 2
         local camRad = math.rad(Camera.FieldOfView) / 2
         local r = (math.tan(aimRad) / math.tan(camRad)) * cx
@@ -195,48 +171,35 @@ local function mainLoop()
 
     updateFovCircle()
     local target = getClosestEnemy()
-    if target then
-        currentTarget = target
-    else
-        currentTarget = nil
-        currentTargetPlayer = nil
-    end
+    currentTarget = target
+    if not target then currentTargetPlayer = nil end
 
     applyAutoStop()
 
-    if currentTarget and AimbotSettings.Enabled then
+    if target then
         pcall(function()
-            local targetPos = currentTarget.Position
+            local targetPos = target.Position
             local camPos = Camera.CFrame.Position
             if AimbotSettings.SilentAim then
                 Camera.CFrame = CFrame.lookAt(camPos, targetPos)
             else
-                local targetCF = CFrame.lookAt(camPos, targetPos)
                 local smooth = AimbotSettings.Smoothness or 0.5
-                Camera.CFrame = Camera.CFrame:Lerp(targetCF, smooth + 0.2)
+                Camera.CFrame = Camera.CFrame:Lerp(CFrame.lookAt(camPos, targetPos), smooth + 0.2)
             end
         end)
     end
 
-    -- AUTOFIRE
-    if not AimbotSettings.AutoFire or not currentTarget or not currentTargetPlayer then return end
-    local plr = currentTargetPlayer
-    if plr == Player or not isPlayerAlive(plr) then
-        currentTarget, currentTargetPlayer = nil, nil
-        return
-    end
-    if AimbotSettings.AimMode == "CounterBlox" and isTeammate(plr) then
-        currentTarget, currentTargetPlayer = nil, nil
-        return
-    end
-    if not isVisible(currentTarget) then return end
-
-    local screenPos = Camera:WorldToViewportPoint(currentTarget.Position)
+    if not AimbotSettings.AutoFire or not target or not currentTargetPlayer then return end
+    if currentTargetPlayer == Player or not isPlayerAlive(currentTargetPlayer) then currentTarget, currentTargetPlayer = nil, nil return end
+    if AimbotSettings.AimMode == "CounterBlox" and isTeammate(currentTargetPlayer) then currentTarget, currentTargetPlayer = nil, nil return end
+    if not isVisible(target) then return end
+    
+    local screenPos = Camera:WorldToViewportPoint(target.Position)
     if not screenPos then return end
     local cx, cy = Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2
     if math.abs(screenPos.X - cx) > 30 or math.abs(screenPos.Y - cy) > 30 then return end
     if tick() - lastFireTime < AimbotSettings.AutoFireDelay then return end
-
+    
     if mouse1press then pcall(mouse1press) end
     task.wait(0.01)
     if mouse1release then pcall(mouse1release) end
@@ -269,10 +232,11 @@ end
 
 -- ========== AIMBOT CARD ==========
 local function createAimbotCard(parent)
+    -- Карточка на всю ширину. Цвет и прозрачность как у окна (влияет блюр)
     local card = new("Frame", {
-        Size = UDim2.new(1, -8, 0, 245), 
+        Size = UDim2.new(1, -8, 0, 240), 
         BackgroundColor3 = CFG.Bg,
-        BackgroundTransparency = 0.1,
+        BackgroundTransparency = 0.2, 
         BorderSizePixel = 0,
         LayoutOrder = 1,
         ZIndex = 3,
@@ -446,98 +410,38 @@ local function createAimbotCard(parent)
     }, content)
     new("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 6) }, rightCol)
 
-    -- Кастомный Dropdown для Аимбота
-    local function AimbotDropdown(parent, text, options, default, order, callback, configKey)
-        local holder = new("Frame", { Size = UDim2.new(1, 0, 0, 42), BackgroundColor3 = CFG.PanelLight, BackgroundTransparency = 0.5, BorderSizePixel = 0, LayoutOrder = order or 1, ZIndex = 3 }, parent)
-        corner(holder, 8)
-        stroke(holder, CFG.TextDim, 1, 0.8)
-        table.insert(GlobalThemeElements, { obj = holder, prop = "BackgroundColor3", base = "PanelLight" })
+    -- Используем СТАНДАРТНЫЙ UI.Dropdown, чтобы не ломать цвета и блюр
+    UI.Dropdown(leftCol, "Aim Mode", {"FluxoPvP", "Classic", "CounterBlox"}, AimbotSettings.AimMode, 1, function(v) AimbotSettings.AimMode = v end, "Aimbot_AimMode")
+    UI.Dropdown(leftCol, "Aim Part", {"Head", "Body", "Torso"}, AimbotSettings.AimPart, 2, function(v) AimbotSettings.AimPart = v end, "Aimbot_AimPart")
 
-        local txt = new("TextLabel", { Size = UDim2.new(0.5, -14, 1, 0), Position = UDim2.fromOffset(14, 0), BackgroundTransparency = 1, Text = text, TextColor3 = CFG.Text, Font = UI.FontMed, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 4 }, holder)
-        table.insert(GlobalThemeElements, { obj = txt, prop = "TextColor3", base = "Text" })
+    -- Smooth: 0.1 - 1.0 (шаг реализуется в GUI, если там float), чтобы менялось плавно, ставим 1 - 10 и делим на 10
+    local smoothSlider = UI.Slider(leftCol, "Smooth", 1, 10, math.floor(AimbotSettings.Smoothness * 10), 3, function(v) 
+        AimbotSettings.Smoothness = v / 10 
+    end, "Aimbot_Smooth")
+    -- Перезаписываем Set для Smooth, чтобы конфиг хранил float
+    ConfigElements["Aimbot_Smooth"] = {
+        Set = function(v) 
+            AimbotSettings.Smoothness = v
+            smoothSlider:Set(math.floor(v * 10)) 
+        end,
+        Get = function() return AimbotSettings.Smoothness end
+    }
 
-        local btn = new("TextButton", { Size = UDim2.new(0.5, -14, 0, 26), Position = UDim2.new(0.5, 0, 0.5, -13), BackgroundColor3 = CFG.Bg, BackgroundTransparency = 0.3, Text = "  " .. tostring(default) .. "  ▼", TextColor3 = CFG.Accent, Font = UI.FontBold, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left, AutoButtonColor = false, ZIndex = 5 }, holder)
-        corner(btn, 6)
-        local btnStroke = stroke(btn, CFG.TextDim, 1, 0.6)
-        table.insert(GlobalColorElements, { obj = btn, prop = "TextColor3", base = "Accent" })
-        table.insert(GlobalColorElements, { obj = btnStroke, prop = "Color", base = "Accent" })
-
-        local state = default
-        if configKey then SetConfig(configKey, state) end
-
-        local isOpen = false
-        local listFrame = new("ScrollingFrame", { Size = UDim2.new(1, 0, 0, 0), Position = UDim2.new(0, 0, 1, 5), BackgroundColor3 = CFG.Bg, BackgroundTransparency = 0.05, BorderSizePixel = 0, ClipsDescendants = true, Visible = false, ZIndex = 999, ScrollBarThickness = 0 }, holder)
-        corner(listFrame, 6)
-        local listStroke = stroke(listFrame, CFG.Accent, 1, 0.4)
-        table.insert(GlobalThemeElements, { obj = listFrame, prop = "BackgroundColor3", base = "Bg" })
-        table.insert(GlobalColorElements, { obj = listStroke, prop = "Color", base = "Accent" })
-        
-        new("UIListLayout", { Padding = UDim.new(0, 2), SortOrder = Enum.SortOrder.LayoutOrder }, listFrame)
-        new("UIPadding", { PaddingTop = UDim.new(0, 4), PaddingBottom = UDim.new(0, 4) }, listFrame)
-
-        -- Блокиратор кликов
-        local blockInputFrame = new("TextButton", {
-            Size = UDim2.new(1, 0, 1, 0),
-            BackgroundTransparency = 1,
-            Text = "",
-            Visible = false,
-            ZIndex = 998,
-        }, _G.MissWare.Gui or parent)
-
-        for i, opt in ipairs(options) do
-            local ob = new("TextButton", { Size = UDim2.new(1, -8, 0, 24), Position = UDim2.fromOffset(4, 0), BackgroundColor3 = CFG.Accent, BackgroundTransparency = 1, Text = "  " .. tostring(opt), TextColor3 = CFG.Text, Font = UI.FontMed, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left, AutoButtonColor = false, LayoutOrder = i, ZIndex = 999 }, listFrame)
-            corner(ob, 4)
-            ob.MouseEnter:Connect(function() tween(ob, CFG.EaseFast, { BackgroundTransparency = 0.7 }) end)
-            ob.MouseLeave:Connect(function() tween(ob, CFG.EaseFast, { BackgroundTransparency = 1 }) end)
-
-            ob.MouseButton1Click:Connect(function()
-                state = opt
-                btn.Text = "  " .. tostring(opt) .. "  ▼"
-                if configKey then SetConfig(configKey, state) end
-                if callback then callback(state) end
-                isOpen = false
-                blockInputFrame.Visible = false
-                tween(listFrame, CFG.EaseFast, { Size = UDim2.new(1, 0, 0, 0) })
-                task.delay(0.2, function() if not isOpen then listFrame.Visible = false end end)
-            end)
-        end
-
-        btn.MouseButton1Click:Connect(function()
-            isOpen = not isOpen
-            if isOpen then
-                blockInputFrame.Visible = true
-                listFrame.Visible = true
-                tween(listFrame, CFG.EaseFast, { Size = UDim2.new(1, 0, 0, #options * 26 + 8) })
-            else
-                blockInputFrame.Visible = false
-                tween(listFrame, CFG.EaseFast, { Size = UDim2.new(1, 0, 0, 0) })
-                task.delay(0.2, function() if not isOpen then listFrame.Visible = false end end)
-            end
-        end)
-
-        blockInputFrame.MouseButton1Click:Connect(function()
-            isOpen = false
-            blockInputFrame.Visible = false
-            tween(listFrame, CFG.EaseFast, { Size = UDim2.new(1, 0, 0, 0) })
-            task.delay(0.2, function() if not isOpen then listFrame.Visible = false end end)
-        end)
-
-        local returnObj = { 
-            Set = function(v) state = v; btn.Text = "  " .. tostring(v) .. "  ▼"; if configKey then SetConfig(configKey, v) end end, 
-            Get = function() return state end,
-        }
-        if configKey then ConfigElements[configKey] = returnObj end
-        return returnObj
-    end
-
-    AimbotDropdown(leftCol, "Aim Mode", {"FluxoPvP", "Classic", "CounterBlox"}, AimbotSettings.AimMode, 1, function(v) AimbotSettings.AimMode = v end, "Aimbot_AimMode")
-    AimbotDropdown(leftCol, "Aim Part", {"Head", "Body", "Torso"}, AimbotSettings.AimPart, 2, function(v) AimbotSettings.AimPart = v end, "Aimbot_AimPart")
-
-    UI.Slider(leftCol, "FOV", 1, 90, AimbotSettings.FOV, 3, function(v) AimbotSettings.FOV = v; updateFovCircle() end, "Aimbot_FOV")
-    UI.Slider(leftCol, "Smooth", 0.1, 1.0, AimbotSettings.Smoothness, 4, function(v) AimbotSettings.Smoothness = v end, "Aimbot_Smooth")
+    UI.Slider(leftCol, "FOV", 1, 90, AimbotSettings.FOV, 4, function(v) AimbotSettings.FOV = v; updateFovCircle() end, "Aimbot_FOV")
     UI.Slider(leftCol, "Distance", 50, 1000, AimbotSettings.MaxDistance, 5, function(v) AimbotSettings.MaxDistance = v end, "Aimbot_Dist")
 
-    UI.Slider(rightCol, "Fire Delay", 0.01, 0.5, AimbotSettings.AutoFireDelay, 1, function(v) AimbotSettings.AutoFireDelay = v end, "Aimbot_FireDelay")
+    -- Fire Delay: от 1 до 50 и делим на 100, чтобы можно было выставить 0.5
+    local fireDelaySlider = UI.Slider(rightCol, "Fire Delay", 1, 50, math.floor(AimbotSettings.AutoFireDelay * 100), 1, function(v) 
+        AimbotSettings.AutoFireDelay = v / 100 
+    end, "Aimbot_FireDelay")
+    ConfigElements["Aimbot_FireDelay"] = {
+        Set = function(v) 
+            AimbotSettings.AutoFireDelay = v
+            fireDelaySlider:Set(math.floor(v * 100)) 
+        end,
+        Get = function() return AimbotSettings.AutoFireDelay end
+    }
+
     UI.Checkbox(rightCol, "Silent Aim", AimbotSettings.SilentAim, 2, function(v) AimbotSettings.SilentAim = v; updateFovCircle() end, "Aimbot_SilentAim")
     UI.Checkbox(rightCol, "Auto Fire", AimbotSettings.AutoFire, 3, function(v) AimbotSettings.AutoFire = v end, "Aimbot_AutoFire")
     UI.Checkbox(rightCol, "Auto Stop", AimbotSettings.AutoStop, 4, function(v) AimbotSettings.AutoStop = v end, "Aimbot_AutoStop")
