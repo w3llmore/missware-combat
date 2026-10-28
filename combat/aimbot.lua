@@ -1,6 +1,6 @@
 --[[
-    MissWare Combat — Aimbot (v5 - FULL CARD)
-    Логика из сырого кода + карточка в стиле MissWare + BindKey + AutoStop
+    MissWare Combat — Aimbot (v6 - FULL CARD + 2 COLUMNS)
+    Карточка = половина ширины GUI, настройки в 2 столбика, скролл работает
 ]]
 
 local Players = game:GetService("Players")
@@ -280,8 +280,9 @@ end
 
 -- ========== AIMBOT CARD ==========
 local function createAimbotCard(parent)
+    -- Карточка = половина ширины родителя, фикс. высота под 2 столбика
     local card = new("Frame", {
-        Size = UDim2.fromOffset(225, 375),
+        Size = UDim2.new(0.5, -8, 0, 430),
         BackgroundColor3 = CFG.PanelLight,
         BackgroundTransparency = 0.2,
         BorderSizePixel = 0,
@@ -414,7 +415,6 @@ local function createAimbotCard(parent)
         end
     end)
 
-    -- ConfigElement для BindKey
     UI.SetConfig("Aimbot_BindKey", AimbotSettings.BindKey and formatBind(AimbotSettings.BindKey) or nil)
     UI.ConfigElements["Aimbot_BindKey"] = {
         Set = function(v)
@@ -435,61 +435,96 @@ local function createAimbotCard(parent)
         end,
     }
 
-    -- ===== CONTENT =====
+    -- ===== CONTENT (2 столбика) =====
     local content = new("Frame", {
         Size = UDim2.new(1, -16, 1, -44),
         Position = UDim2.fromOffset(8, 40),
         BackgroundTransparency = 1,
+        ClipsDescendants = true,
         ZIndex = 4,
     }, card)
+
+    local leftCol = new("Frame", {
+        Size = UDim2.new(0.5, -4, 1, 0),
+        Position = UDim2.fromOffset(0, 0),
+        BackgroundTransparency = 1,
+        ZIndex = 4,
+    }, content)
     new("UIListLayout", {
         SortOrder = Enum.SortOrder.LayoutOrder,
         Padding = UDim.new(0, 6),
-    }, content)
+    }, leftCol)
 
-    UI.Dropdown(content, "Aim Mode", {"FluxoPvP", "Classic", "CounterBlox"}, AimbotSettings.AimMode, 1, function(v)
+    local rightCol = new("Frame", {
+        Size = UDim2.new(0.5, -4, 1, 0),
+        Position = UDim2.new(0.5, 4, 0, 0),
+        BackgroundTransparency = 1,
+        ZIndex = 4,
+    }, content)
+    new("UIListLayout", {
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Padding = UDim.new(0, 6),
+    }, rightCol)
+
+    -- ЛЕВЫЙ СТОЛБИК
+    UI.Dropdown(leftCol, "Aim Mode", {"FluxoPvP", "Classic", "CounterBlox"}, AimbotSettings.AimMode, 1, function(v)
         AimbotSettings.AimMode = v
     end, "Aimbot_AimMode")
 
-    UI.Dropdown(content, "Aim Part", {"Head", "Body", "Torso"}, AimbotSettings.AimPart, 2, function(v)
+    UI.Dropdown(leftCol, "Aim Part", {"Head", "Body", "Torso"}, AimbotSettings.AimPart, 2, function(v)
         AimbotSettings.AimPart = v
     end, "Aimbot_AimPart")
 
-    UI.Slider(content, "FOV", 1, 90, AimbotSettings.FOV, 3, function(v)
+    UI.Slider(leftCol, "FOV", 1, 90, AimbotSettings.FOV, 3, function(v)
         AimbotSettings.FOV = v; updateFovCircle()
     end, "Aimbot_FOV")
 
-    UI.Slider(content, "Smooth", 0.1, 1.0, AimbotSettings.Smoothness, 4, function(v)
+    UI.Slider(leftCol, "Smooth", 0.1, 1.0, AimbotSettings.Smoothness, 4, function(v)
         AimbotSettings.Smoothness = v
     end, "Aimbot_Smooth")
 
-    UI.Slider(content, "Distance", 50, 1000, AimbotSettings.MaxDistance, 5, function(v)
+    UI.Slider(leftCol, "Distance", 50, 1000, AimbotSettings.MaxDistance, 5, function(v)
         AimbotSettings.MaxDistance = v
     end, "Aimbot_Dist")
 
-    UI.Slider(content, "Fire Delay", 0.01, 0.5, AimbotSettings.AutoFireDelay, 6, function(v)
+    -- ПРАВЫЙ СТОЛБИК
+    UI.Slider(rightCol, "Fire Delay", 0.01, 0.5, AimbotSettings.AutoFireDelay, 1, function(v)
         AimbotSettings.AutoFireDelay = v
     end, "Aimbot_FireDelay")
 
-    UI.Checkbox(content, "Silent Aim", AimbotSettings.SilentAim, 7, function(v)
+    UI.Checkbox(rightCol, "Silent Aim", AimbotSettings.SilentAim, 2, function(v)
         AimbotSettings.SilentAim = v; updateFovCircle()
     end, "Aimbot_SilentAim")
 
-    UI.Checkbox(content, "Auto Fire", AimbotSettings.AutoFire, 8, function(v)
+    UI.Checkbox(rightCol, "Auto Fire", AimbotSettings.AutoFire, 3, function(v)
         AimbotSettings.AutoFire = v
     end, "Aimbot_AutoFire")
 
-    UI.Checkbox(content, "Auto Stop", AimbotSettings.AutoStop, 9, function(v)
+    UI.Checkbox(rightCol, "Auto Stop", AimbotSettings.AutoStop, 4, function(v)
         AimbotSettings.AutoStop = v
     end, "Aimbot_AutoStop")
+
+    -- Обновление визуала toggle извне (для BindKey-хендлера)
+    _G.MissWare.UpdateAimbotToggle = updateToggleVisual
 end
 
 -- ========== PUBLIC API ==========
 function _G.MissWare.CreateAimbotUI(parent)
-    createAimbotCard(parent)
+    local row = new("Frame", {
+        Size = UDim2.new(1, 0, 0, 430),
+        BackgroundTransparency = 1,
+        LayoutOrder = 2,
+        ZIndex = 3,
+    }, parent)
+    new("UIListLayout", {
+        Padding = UDim.new(0, 8),
+        FillDirection = Enum.FillDirection.Horizontal,
+        SortOrder = Enum.SortOrder.LayoutOrder,
+    }, row)
+    createAimbotCard(row)
 end
 
--- ========== BIND KEY HANDLER (включает/выключает по нажатию) ==========
+-- ========== BIND KEY HANDLER ==========
 UserInputService.InputBegan:Connect(function(input, gp)
     if gp then return end
     local k = AimbotSettings.BindKey
@@ -506,7 +541,6 @@ UserInputService.InputBegan:Connect(function(input, gp)
         AimbotSettings.Enabled = not AimbotSettings.Enabled
         UI.SetConfig("Aimbot_Enabled", AimbotSettings.Enabled)
         if AimbotSettings.Enabled then startAimbot() else stopAimbot() end
-        -- обновляем визуал кнопки, если карточка создана
         if _G.MissWare.UpdateAimbotToggle then _G.MissWare.UpdateAimbotToggle() end
     end
 end)
