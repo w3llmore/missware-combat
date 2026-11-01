@@ -1,5 +1,5 @@
 --[[
-    MissWare Combat — Aimbot (v23 - GLOBAL FIX)
+    MissWare Combat — Aimbot (v24 - PERFECT DROPDOWN)
 ]]
 
 local Players = game:GetService("Players")
@@ -227,7 +227,7 @@ local function formatBind(k)
     return tostring(k)
 end
 
--- ========== CUSTOM DROPDOWN (ПОВЕРХ ВСЕГО) ==========
+-- ========== CUSTOM DROPDOWN ==========
 local activeDropdown = nil
 
 local function createFixedDropdown(parent, text, options, default, order, callback)
@@ -281,7 +281,7 @@ local function createFixedDropdown(parent, text, options, default, order, callba
     local state = default
     local isOpen = false
 
-    -- Создаем Frame (НЕ ScrollingFrame)
+    -- Создаем список поверх всего (в gui)
     local rootGui = _G.MissWare.Gui or parent
     local listFrame = new("Frame", {
         Size = UDim2.new(0, 0, 0, 0),
@@ -355,7 +355,6 @@ local function createFixedDropdown(parent, text, options, default, order, callba
             closeDropdown()
             return
         end
-        
         if activeDropdown then
             activeDropdown:Fire()
         end
@@ -363,7 +362,6 @@ local function createFixedDropdown(parent, text, options, default, order, callba
         isOpen = true
         activeDropdown = { Fire = closeDropdown }
 
-        -- Позиционируем строго под кнопкой
         listFrame.Position = UDim2.fromOffset(btn.AbsolutePosition.X, btn.AbsolutePosition.Y + btn.AbsoluteSize.Y + 5)
         listFrame.Size = UDim2.fromOffset(btn.AbsoluteSize.X, #options * 26 + 8)
         listFrame.Visible = true
@@ -381,8 +379,8 @@ local function createFixedDropdown(parent, text, options, default, order, callba
     }
 end
 
--- ========== AIMBOT CARD ==========
-local function createAimbotCard(parent)
+-- ========== UI CARD ==========
+function _G.MissWare.CreateAimbotUI(parent)
     local card = new("Frame", {
         Size = UDim2.new(1, -8, 0, 240), 
         BackgroundColor3 = CFG.Bg,
@@ -390,7 +388,6 @@ local function createAimbotCard(parent)
         BorderSizePixel = 0,
         LayoutOrder = 1,
         ZIndex = 10,
-        ClipsDescendants = false,
     }, parent)
     corner(card, 10)
     local cardStroke = stroke(card, CFG.Accent, 1, 0.5)
@@ -527,29 +524,6 @@ local function createAimbotCard(parent)
 
     _G.MissWare.UpdateAimbotToggle = updateToggleVisual
 end
-
-function _G.MissWare.CreateAimbotUI(parent)
-    createAimbotCard(parent)
-end
-
-UserInputService.InputBegan:Connect(function(input, gp)
-    if gp then return end
-    local k = AimbotSettings.BindKey
-    if not k then return end
-    local pressed = false
-    if typeof(k) == "EnumItem" and k.EnumType == Enum.KeyCode then
-        pressed = (input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == k)
-    elseif k == Enum.UserInputType.MouseButton1 then
-        pressed = (input.UserInputType == Enum.UserInputType.MouseButton1)
-    elseif k == Enum.UserInputType.MouseButton2 then
-        pressed = (input.UserInputType == Enum.UserInputType.MouseButton2)
-    end
-    if pressed then
-        AimbotSettings.Enabled = not AimbotSettings.Enabled
-        if AimbotSettings.Enabled then startAimbot() else stopAimbot() end
-        if _G.MissWare.UpdateAimbotToggle then _G.MissWare.UpdateAimbotToggle() end
-    end
-end)
 
 _G.MissWare.AimbotSettings = AimbotSettings
 _G.MissWare.startAimbot = startAimbot
