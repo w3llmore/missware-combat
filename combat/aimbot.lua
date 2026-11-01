@@ -1,5 +1,5 @@
 --[[
-    MissWare Combat — Aimbot (v20 - PERFECT DROPDOWN)
+    MissWare Combat — Aimbot (v21 - GLOBAL DROPDOWN)
 ]]
 
 local Players = game:GetService("Players")
@@ -227,7 +227,9 @@ local function formatBind(k)
     return tostring(k)
 end
 
--- ========== CUSTOM DROPDOWN (ВНУТРИ КАРТОЧКИ) ==========
+-- ========== CUSTOM DROPDOWN (ПОВЕРХ ВСЕГО) ==========
+local activeDropdown = nil
+
 local function createFixedDropdown(parent, text, options, default, order, callback)
     local holder = new("Frame", {
         Size = UDim2.new(1, 0, 0, 42),
@@ -236,7 +238,6 @@ local function createFixedDropdown(parent, text, options, default, order, callba
         BorderSizePixel = 0,
         LayoutOrder = order or 1,
         ZIndex = 3,
-        ClipsDescendants = false, -- ВАЖНО
     }, parent)
     corner(holder, 8)
     local hStroke = stroke(holder, CFG.TextDim, 1, 0.8)
@@ -280,9 +281,11 @@ local function createFixedDropdown(parent, text, options, default, order, callba
     local state = default
     local isOpen = false
 
+    -- Создаем список В КОРНЕ GUI (чтобы он был поверх всего)
+    local rootGui = _G.MissWare.Gui or parent
     local listFrame = new("ScrollingFrame", {
-        Size = UDim2.new(1, 0, 0, 0),
-        Position = UDim2.new(0, 0, 1, 5),
+        Size = UDim2.new(0, 0, 0, 0),
+        Position = UDim2.new(0, 0, 0, 0),
         BackgroundColor3 = CFG.Bg,
         BackgroundTransparency = 0,
         BorderSizePixel = 0,
@@ -290,7 +293,7 @@ local function createFixedDropdown(parent, text, options, default, order, callba
         Visible = false,
         ZIndex = 999,
         ScrollBarThickness = 0
-    }, holder)
+    }, rootGui)
     corner(listFrame, 6)
     local listStroke = stroke(listFrame, CFG.Accent, 1, 0.8)
     table.insert(GlobalThemeElements, { obj = listFrame, prop = "BackgroundColor3", base = "Bg" })
@@ -298,6 +301,14 @@ local function createFixedDropdown(parent, text, options, default, order, callba
     
     new("UIListLayout", { Padding = UDim.new(0, 2), SortOrder = Enum.SortOrder.LayoutOrder }, listFrame)
     new("UIPadding", { PaddingTop = UDim.new(0, 4), PaddingBottom = UDim.new(0, 4) }, listFrame)
+
+    local blockInputFrame = new("TextButton", {
+        Size = UDim2.new(1, 0, 1, 0),
+        BackgroundTransparency = 1,
+        Text = "",
+        Visible = false,
+        ZIndex = 998,
+    }, rootGui)
 
     for i, opt in ipairs(options) do
         local ob = new("TextButton", {
@@ -325,20 +336,45 @@ local function createFixedDropdown(parent, text, options, default, order, callba
             btn.Text = "  " .. tostring(opt) .. "  ▼"
             if callback then callback(state) end
             isOpen = false
-            tween(listFrame, CFG.EaseFast, { Size = UDim2.new(1, 0, 0, 0) })
+            blockInputFrame.Visible = false
+            tween(listFrame, CFG.EaseFast, { Size = UDim2.new(0, 0, 0, 0) })
             task.delay(0.2, function() if not isOpen then listFrame.Visible = false end end)
+            activeDropdown = nil
         end)
     end
 
+    local function closeDropdown()
+        isOpen = false
+        blockInputFrame.Visible = false
+        tween(listFrame, CFG.EaseFast, { Size = UDim2.new(0, btn.AbsoluteSize.X, 0, 0) })
+        task.delay(0.2, function() if not isOpen then listFrame.Visible = false end end)
+        activeDropdown = nil
+    end
+
     btn.MouseButton1Click:Connect(function()
-        isOpen = not isOpen
-        if isOpen then
-            listFrame.Visible = true
-            tween(listFrame, CFG.EaseFast, { Size = UDim2.new(1, 0, 0, #options * 26 + 8) })
-        else
-            tween(listFrame, CFG.EaseFast, { Size = UDim2.new(1, 0, 0, 0) })
-            task.delay(0.2, function() if not isOpen then listFrame.Visible = false end end)
+        if activeDropdown == btn then
+            closeDropdown()
+            return
         end
+        
+        if activeDropdown then
+            activeDropdown:Fire() -- Закрываем предыдущий
+        end
+
+        isOpen = true
+        activeDropdown = { Fire = closeDropdown }
+
+        -- Позиционируем строго под кнопкой в глобальных координатах
+        listFrame.Position = UDim2.fromOffset(btn.AbsolutePosition.X, btn.AbsolutePosition.Y + btn.AbsoluteSize.Y + 5)
+        listFrame.Size = UDim2.new(0, btn.AbsoluteSize.X, 0, 0)
+        
+        blockInputFrame.Visible = true
+        listFrame.Visible = true
+        tween(listFrame, CFG.EaseFast, { Size = UDim2.new(0, btn.AbsoluteSize.X, 0, #options * 26 + 8) })
+    end)
+
+    blockInputFrame.MouseButton1Click:Connect(function()
+        closeDropdown()
     end)
 
     return { 
@@ -356,7 +392,6 @@ local function createAimbotCard(parent)
         BorderSizePixel = 0,
         LayoutOrder = 1,
         ZIndex = 10,
-        ClipsDescendants = false, -- ОТКЛЮЧАЕМ ОБРЕЗКУ
     }, parent)
     corner(card, 10)
     local cardStroke = stroke(card, CFG.Accent, 1, 0.5)
@@ -470,7 +505,7 @@ local function createAimbotCard(parent)
         Size = UDim2.new(1, -16, 1, -44),
         Position = UDim2.fromOffset(8, 40),
         BackgroundTransparency = 1,
-        ClipsDescendants = false, -- ОТКЛЮЧАЕМ ОБРЕЗКУ
+        ClipsDescendants = false,
         ZIndex = 11,
     }, card)
 
