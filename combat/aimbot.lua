@@ -1,5 +1,5 @@
 --[[
-    MissWare Combat — Aimbot (v26 - FIXED CRASH)
+    MissWare Combat — Aimbot (v27 - NO CRASH)
 ]]
 
 local Players = game:GetService("Players")
@@ -286,7 +286,7 @@ local function createFixedDropdown(parent, text, options, default, order, callba
         Size = UDim2.new(0, btn.AbsoluteSize.X, 0, 0),
         Position = UDim2.new(0, 0, 0, 0),
         BackgroundColor3 = CFG.Bg,
-        BackgroundTransparency = 1, -- Начинаем с 1 для анимации
+        BackgroundTransparency = 1,
         BorderSizePixel = 0,
         ClipsDescendants = true,
         Visible = false,
@@ -355,14 +355,15 @@ local function createFixedDropdown(parent, text, options, default, order, callba
             closeDropdown()
             return
         end
-        if activeDropdown then
-            activeDropdown:Fire()
+        
+        -- ФИКС КРАША: проверяем, что activeDropdown существует и имеет метод Fire
+        if activeDropdown and type(activeDropdown) == "table" and activeDropdown.Fire then
+            activeDropdown.Fire()
         end
 
         isOpen = true
         activeDropdown = { Fire = closeDropdown }
 
-        -- Мгновенно задаем размер и позицию, анимируем только прозрачность
         listFrame.Position = UDim2.fromOffset(btn.AbsolutePosition.X, btn.AbsolutePosition.Y + btn.AbsoluteSize.Y + 8)
         listFrame.Size = UDim2.fromOffset(btn.AbsoluteSize.X, #options * 26 + 8)
         listFrame.Visible = true
@@ -469,7 +470,6 @@ function _G.MissWare.CreateAimbotUI(parent)
     table.insert(GlobalThemeElements, { obj = bindBtn, prop = "TextColor3", base = "TextDim" })
 
     local bindingAimbot = false
-    
     local function applyBindVisual()
         bindBtn.Text = formatBind(AimbotSettings.BindKey)
         bindBtn.TextColor3 = AimbotSettings.BindKey and CFG.Accent or CFG.TextDim
