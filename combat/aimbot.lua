@@ -1,5 +1,5 @@
 --[[
-    MissWare Combat — Aimbot (v18 - POSITION FIX)
+    MissWare Combat — Aimbot (v19 - FINAL)
 ]]
 
 local Players = game:GetService("Players")
@@ -14,10 +14,6 @@ local UI = _G.MissWare and _G.MissWare.UI
 if not UI then warn("[MissWare Aimbot] UI API not found") return end
 local new, corner, stroke, gradient = UI.New, UI.Corner, UI.Stroke, UI.Gradient
 local CFG = UI.CFG
-
--- Защита от краша
-local SetConfig = UI.SetConfig or (_G.MissWare and _G.MissWare.SetConfig) or function() end
-local ConfigElements = UI.ConfigElements or (_G.MissWare and _G.MissWare.ConfigElements) or {}
 
 local GlobalColorElements = _G.MissWare.GlobalColorElements or {}
 local GlobalThemeElements = _G.MissWare.GlobalThemeElements or {}
@@ -231,8 +227,8 @@ local function formatBind(k)
     return tostring(k)
 end
 
--- ========== CUSTOM DROPDOWN (ПОЗИЦИОНИРОВАНИЕ ИСПРАВЛЕНО) ==========
-local function createFixedDropdown(parent, text, options, default, order, callback, configKey)
+-- ========== CUSTOM DROPDOWN (ВНУТРИ КАРТОЧКИ) ==========
+local function createFixedDropdown(parent, text, options, default, order, callback)
     local holder = new("Frame", {
         Size = UDim2.new(1, 0, 0, 42),
         BackgroundColor3 = CFG.PanelLight,
@@ -281,23 +277,20 @@ local function createFixedDropdown(parent, text, options, default, order, callba
     table.insert(GlobalColorElements, { obj = btnStroke, prop = "Color", base = "Accent" })
 
     local state = default
-    if configKey then SetConfig(configKey, state) end
-
     local isOpen = false
-    local rootGui = _G.MissWare.Gui or parent
 
-    -- Создаем фрейм списка (скрытый)
+    -- Создаем список ВНУТРИ holder, чтобы он двигался вместе с карточкой
     local listFrame = new("ScrollingFrame", {
-        Size = UDim2.new(0, btn.AbsoluteSize.X, 0, 0),
-        Position = UDim2.new(0, 0, 0, 0),
+        Size = UDim2.new(1, 0, 0, 0),
+        Position = UDim2.new(0, 0, 1, 5),
         BackgroundColor3 = CFG.Bg,
-        BackgroundTransparency = 0, 
+        BackgroundTransparency = 0,
         BorderSizePixel = 0,
         ClipsDescendants = true,
         Visible = false,
         ZIndex = 999,
         ScrollBarThickness = 0
-    }, rootGui)
+    }, holder)
     corner(listFrame, 6)
     local listStroke = stroke(listFrame, CFG.Accent, 1, 0.8)
     table.insert(GlobalThemeElements, { obj = listFrame, prop = "BackgroundColor3", base = "Bg" })
@@ -305,14 +298,6 @@ local function createFixedDropdown(parent, text, options, default, order, callba
     
     new("UIListLayout", { Padding = UDim.new(0, 2), SortOrder = Enum.SortOrder.LayoutOrder }, listFrame)
     new("UIPadding", { PaddingTop = UDim.new(0, 4), PaddingBottom = UDim.new(0, 4) }, listFrame)
-
-    local blockInputFrame = new("TextButton", {
-        Size = UDim2.new(1, 0, 1, 0),
-        BackgroundTransparency = 1,
-        Text = "",
-        Visible = false,
-        ZIndex = 998,
-    }, rootGui)
 
     for i, opt in ipairs(options) do
         local ob = new("TextButton", {
@@ -338,11 +323,9 @@ local function createFixedDropdown(parent, text, options, default, order, callba
         ob.MouseButton1Click:Connect(function()
             state = opt
             btn.Text = "  " .. tostring(opt) .. "  ▼"
-            if configKey then SetConfig(configKey, state) end
             if callback then callback(state) end
             isOpen = false
-            blockInputFrame.Visible = false
-            tween(listFrame, CFG.EaseFast, { Size = UDim2.new(0, btn.AbsoluteSize.X, 0, 0) })
+            tween(listFrame, CFG.EaseFast, { Size = UDim2.new(1, 0, 0, 0) })
             task.delay(0.2, function() if not isOpen then listFrame.Visible = false end end)
         end)
     end
@@ -350,33 +333,18 @@ local function createFixedDropdown(parent, text, options, default, order, callba
     btn.MouseButton1Click:Connect(function()
         isOpen = not isOpen
         if isOpen then
-            -- ИСПОЛЬЗУЕМ UDim2.fromOffset ДЛЯ ТОЧНОГО ПОЗИЦИОНИРОВАНИЯ
-            listFrame.Position = UDim2.fromOffset(btn.AbsolutePosition.X, btn.AbsolutePosition.Y + btn.AbsoluteSize.Y + 5)
-            listFrame.Size = UDim2.new(0, btn.AbsoluteSize.X, 0, 0)
-            
-            blockInputFrame.Visible = true
             listFrame.Visible = true
-            tween(listFrame, CFG.EaseFast, { Size = UDim2.new(0, btn.AbsoluteSize.X, 0, #options * 26 + 8) })
+            tween(listFrame, CFG.EaseFast, { Size = UDim2.new(1, 0, 0, #options * 26 + 8) })
         else
-            blockInputFrame.Visible = false
-            tween(listFrame, CFG.EaseFast, { Size = UDim2.new(0, btn.AbsoluteSize.X, 0, 0) })
+            tween(listFrame, CFG.EaseFast, { Size = UDim2.new(1, 0, 0, 0) })
             task.delay(0.2, function() if not isOpen then listFrame.Visible = false end end)
         end
     end)
 
-    blockInputFrame.MouseButton1Click:Connect(function()
-        isOpen = false
-        blockInputFrame.Visible = false
-        tween(listFrame, CFG.EaseFast, { Size = UDim2.new(0, btn.AbsoluteSize.X, 0, 0) })
-        task.delay(0.2, function() if not isOpen then listFrame.Visible = false end end)
-    end)
-
-    local returnObj = { 
-        Set = function(v) state = v; btn.Text = "  " .. tostring(v) .. "  ▼"; if configKey then SetConfig(configKey, v) end end, 
+    return { 
+        Set = function(v) state = v; btn.Text = "  " .. tostring(v) .. "  ▼" end, 
         Get = function() return state end
     }
-    if configKey then ConfigElements[configKey] = returnObj end
-    return returnObj
 end
 
 -- ========== AIMBOT CARD ==========
@@ -388,6 +356,7 @@ local function createAimbotCard(parent)
         BorderSizePixel = 0,
         LayoutOrder = 1,
         ZIndex = 10,
+        ClipsDescendants = false, -- ОТКЛЮЧАЕМ ОБРЕЗКУ, ЧТОБЫ СПИСОК ВЫЛЕЗАЛ
     }, parent)
     corner(card, 10)
     local cardStroke = stroke(card, CFG.Accent, 1, 0.5)
@@ -443,13 +412,10 @@ local function createAimbotCard(parent)
     local function setEnabled(v)
         AimbotSettings.Enabled = v
         updateToggleVisual()
-        SetConfig("Aimbot_Enabled", v)
         if v then startAimbot() else stopAimbot() end
     end
 
     toggle.MouseButton1Click:Connect(function() setEnabled(not AimbotSettings.Enabled) end)
-    SetConfig("Aimbot_Enabled", AimbotSettings.Enabled)
-    ConfigElements["Aimbot_Enabled"] = { Set = function(v) setEnabled(v) end, Get = function() return AimbotSettings.Enabled end }
 
     local bindBtn = new("TextButton", {
         Size = UDim2.fromOffset(50, 22),
@@ -486,43 +452,25 @@ local function createAimbotCard(parent)
         if input.UserInputType == Enum.UserInputType.Keyboard then
             if input.KeyCode ~= Enum.KeyCode.Unknown then
                 AimbotSettings.BindKey = input.KeyCode
-                SetConfig("Aimbot_BindKey", input.KeyCode.Name)
                 bindingAimbot = false
                 applyBindVisual()
             end
         elseif input.UserInputType == Enum.UserInputType.MouseButton1 then
             AimbotSettings.BindKey = Enum.UserInputType.MouseButton1
-            SetConfig("Aimbot_BindKey", "M1")
             bindingAimbot = false
             applyBindVisual()
         elseif input.UserInputType == Enum.UserInputType.MouseButton2 then
             AimbotSettings.BindKey = Enum.UserInputType.MouseButton2
-            SetConfig("Aimbot_BindKey", "M2")
             bindingAimbot = false
             applyBindVisual()
         end
     end)
 
-    SetConfig("Aimbot_BindKey", AimbotSettings.BindKey and formatBind(AimbotSettings.BindKey) or nil)
-    ConfigElements["Aimbot_BindKey"] = {
-        Set = function(v)
-            if v == nil or v == "" then AimbotSettings.BindKey = nil
-            elseif v == "M1" then AimbotSettings.BindKey = Enum.UserInputType.MouseButton1
-            elseif v == "M2" then AimbotSettings.BindKey = Enum.UserInputType.MouseButton2
-            else
-                local ok, k = pcall(function() return Enum.KeyCode[v] end)
-                if ok and k then AimbotSettings.BindKey = k end
-            end
-            applyBindVisual()
-        end,
-        Get = function() return AimbotSettings.BindKey and formatBind(AimbotSettings.BindKey) or nil end,
-    }
-
     local content = new("Frame", {
         Size = UDim2.new(1, -16, 1, -44),
         Position = UDim2.fromOffset(8, 40),
         BackgroundTransparency = 1,
-        ClipsDescendants = true,
+        ClipsDescendants = false, -- ОТКЛЮЧАЕМ ОБРЕЗКУ
         ZIndex = 11,
     }, card)
 
@@ -531,31 +479,17 @@ local function createAimbotCard(parent)
     local rightCol = new("Frame", { Size = UDim2.new(0.5, -4, 1, 0), Position = UDim2.new(0.5, 4, 0, 0), BackgroundTransparency = 1, ZIndex = 11 }, content)
     new("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 6) }, rightCol)
 
-    createFixedDropdown(leftCol, "Aim Mode", {"FluxoPvP", "Classic", "CounterBlox"}, AimbotSettings.AimMode, 1, function(v) AimbotSettings.AimMode = v end, "Aimbot_AimMode")
-    createFixedDropdown(leftCol, "Aim Part", {"Head", "Body", "Torso"}, AimbotSettings.AimPart, 2, function(v) AimbotSettings.AimPart = v end, "Aimbot_AimPart")
+    createFixedDropdown(leftCol, "Aim Mode", {"FluxoPvP", "Classic", "CounterBlox"}, AimbotSettings.AimMode, 1, function(v) AimbotSettings.AimMode = v end)
+    createFixedDropdown(leftCol, "Aim Part", {"Head", "Body", "Torso"}, AimbotSettings.AimPart, 2, function(v) AimbotSettings.AimPart = v end)
 
-    local smoothSlider = UI.Slider(leftCol, "Smooth", 1, 10, math.floor(AimbotSettings.Smoothness * 10), 3, function(v) 
-        AimbotSettings.Smoothness = v / 10 
-    end, "Aimbot_Smooth")
-    ConfigElements["Aimbot_Smooth"] = {
-        Set = function(v) AimbotSettings.Smoothness = v; smoothSlider:Set(math.floor(v * 10)) end,
-        Get = function() return AimbotSettings.Smoothness end
-    }
+    UI.Slider(leftCol, "Smooth", 1, 10, math.floor(AimbotSettings.Smoothness * 10), 3, function(v) AimbotSettings.Smoothness = v / 10 end)
+    UI.Slider(leftCol, "FOV", 1, 90, AimbotSettings.FOV, 4, function(v) AimbotSettings.FOV = v; updateFovCircle() end)
+    UI.Slider(leftCol, "Distance", 50, 1000, AimbotSettings.MaxDistance, 5, function(v) AimbotSettings.MaxDistance = v end)
 
-    UI.Slider(leftCol, "FOV", 1, 90, AimbotSettings.FOV, 4, function(v) AimbotSettings.FOV = v; updateFovCircle() end, "Aimbot_FOV")
-    UI.Slider(leftCol, "Distance", 50, 1000, AimbotSettings.MaxDistance, 5, function(v) AimbotSettings.MaxDistance = v end, "Aimbot_Dist")
-
-    local fireDelaySlider = UI.Slider(rightCol, "Fire Delay", 1, 50, math.floor(AimbotSettings.AutoFireDelay * 100), 1, function(v) 
-        AimbotSettings.AutoFireDelay = v / 100 
-    end, "Aimbot_FireDelay")
-    ConfigElements["Aimbot_FireDelay"] = {
-        Set = function(v) AimbotSettings.AutoFireDelay = v; fireDelaySlider:Set(math.floor(v * 100)) end,
-        Get = function() return AimbotSettings.AutoFireDelay end
-    }
-
-    UI.Checkbox(rightCol, "Silent Aim", AimbotSettings.SilentAim, 2, function(v) AimbotSettings.SilentAim = v; updateFovCircle() end, "Aimbot_SilentAim")
-    UI.Checkbox(rightCol, "Auto Fire", AimbotSettings.AutoFire, 3, function(v) AimbotSettings.AutoFire = v end, "Aimbot_AutoFire")
-    UI.Checkbox(rightCol, "Auto Stop", AimbotSettings.AutoStop, 4, function(v) AimbotSettings.AutoStop = v end, "Aimbot_AutoStop")
+    UI.Slider(rightCol, "Fire Delay", 1, 50, math.floor(AimbotSettings.AutoFireDelay * 100), 1, function(v) AimbotSettings.AutoFireDelay = v / 100 end)
+    UI.Checkbox(rightCol, "Silent Aim", AimbotSettings.SilentAim, 2, function(v) AimbotSettings.SilentAim = v; updateFovCircle() end)
+    UI.Checkbox(rightCol, "Auto Fire", AimbotSettings.AutoFire, 3, function(v) AimbotSettings.AutoFire = v end)
+    UI.Checkbox(rightCol, "Auto Stop", AimbotSettings.AutoStop, 4, function(v) AimbotSettings.AutoStop = v end)
 
     _G.MissWare.UpdateAimbotToggle = updateToggleVisual
 end
@@ -578,7 +512,6 @@ UserInputService.InputBegan:Connect(function(input, gp)
     end
     if pressed then
         AimbotSettings.Enabled = not AimbotSettings.Enabled
-        SetConfig("Aimbot_Enabled", AimbotSettings.Enabled)
         if AimbotSettings.Enabled then startAimbot() else stopAimbot() end
         if _G.MissWare.UpdateAimbotToggle then _G.MissWare.UpdateAimbotToggle() end
     end
