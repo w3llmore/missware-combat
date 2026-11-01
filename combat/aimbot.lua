@@ -1,5 +1,5 @@
 --[[
-    MissWare Combat — Aimbot (v25 - POLISHED)
+    MissWare Combat — Aimbot (v26 - FIXED CRASH)
 ]]
 
 local Players = game:GetService("Players")
@@ -286,7 +286,7 @@ local function createFixedDropdown(parent, text, options, default, order, callba
         Size = UDim2.new(0, btn.AbsoluteSize.X, 0, 0),
         Position = UDim2.new(0, 0, 0, 0),
         BackgroundColor3 = CFG.Bg,
-        BackgroundTransparency = 0,
+        BackgroundTransparency = 1, -- Начинаем с 1 для анимации
         BorderSizePixel = 0,
         ClipsDescendants = true,
         Visible = false,
@@ -326,7 +326,6 @@ local function createFixedDropdown(parent, text, options, default, order, callba
         corner(ob, 4)
         table.insert(GlobalThemeElements, { obj = ob, prop = "TextColor3", base = "Text" })
         
-        -- 4) Подсветка при наведении (как в кфг)
         ob.MouseEnter:Connect(function() tween(ob, CFG.EaseFast, { BackgroundTransparency = 0.7, TextColor3 = CFG.AccentSoft }) end)
         ob.MouseLeave:Connect(function() tween(ob, CFG.EaseFast, { BackgroundTransparency = 1, TextColor3 = CFG.Text }) end)
 
@@ -336,16 +335,17 @@ local function createFixedDropdown(parent, text, options, default, order, callba
             if callback then callback(state) end
             isOpen = false
             blockInputFrame.Visible = false
-            tween(listFrame, CFG.EaseFast, { Size = UDim2.new(0, btn.AbsoluteSize.X, 0, 0) })
+            tween(listFrame, CFG.EaseFast, { BackgroundTransparency = 1 })
             task.delay(0.2, function() if not isOpen then listFrame.Visible = false end end)
             activeDropdown = nil
         end)
     end
 
     local function closeDropdown()
+        if not isOpen then return end
         isOpen = false
         blockInputFrame.Visible = false
-        tween(listFrame, CFG.EaseFast, { Size = UDim2.new(0, btn.AbsoluteSize.X, 0, 0) })
+        tween(listFrame, CFG.EaseFast, { BackgroundTransparency = 1 })
         task.delay(0.2, function() if not isOpen then listFrame.Visible = false end end)
         activeDropdown = nil
     end
@@ -362,12 +362,12 @@ local function createFixedDropdown(parent, text, options, default, order, callba
         isOpen = true
         activeDropdown = { Fire = closeDropdown }
 
-        -- 4) Позиционирование чуть пониже и анимация
+        -- Мгновенно задаем размер и позицию, анимируем только прозрачность
         listFrame.Position = UDim2.fromOffset(btn.AbsolutePosition.X, btn.AbsolutePosition.Y + btn.AbsoluteSize.Y + 8)
-        listFrame.Size = UDim2.new(0, btn.AbsoluteSize.X, 0, 0)
+        listFrame.Size = UDim2.fromOffset(btn.AbsoluteSize.X, #options * 26 + 8)
         listFrame.Visible = true
         
-        tween(listFrame, CFG.EaseFast, { Size = UDim2.new(0, btn.AbsoluteSize.X, 0, #options * 26 + 8) })
+        tween(listFrame, CFG.EaseFast, { BackgroundTransparency = 0 })
         blockInputFrame.Visible = true
     end)
 
@@ -383,11 +383,10 @@ end
 
 -- ========== UI CARD ==========
 function _G.MissWare.CreateAimbotUI(parent)
-    -- 2) Увеличили высоту карточки, чтобы всё влезло
     local card = new("Frame", {
         Size = UDim2.new(1, -8, 0, 255), 
         BackgroundColor3 = CFG.Bg,
-        BackgroundTransparency = 0, -- 1) Убрали прозрачность, чтобы обводка не пропадала
+        BackgroundTransparency = 0, 
         BorderSizePixel = 0,
         LayoutOrder = 1,
         ZIndex = 10,
@@ -471,7 +470,6 @@ function _G.MissWare.CreateAimbotUI(parent)
 
     local bindingAimbot = false
     
-    -- 5) Мгновенная смена цвета при бинде
     local function applyBindVisual()
         bindBtn.Text = formatBind(AimbotSettings.BindKey)
         bindBtn.TextColor3 = AimbotSettings.BindKey and CFG.Accent or CFG.TextDim
@@ -522,7 +520,6 @@ function _G.MissWare.CreateAimbotUI(parent)
 
     UI.Slider(leftCol, "Smooth", 1, 10, math.floor(AimbotSettings.Smoothness * 10), 3, function(v) AimbotSettings.Smoothness = v / 10 end)
     
-    -- 3) Ограничили FOV до 70
     UI.Slider(leftCol, "FOV", 1, 70, AimbotSettings.FOV, 4, function(v) AimbotSettings.FOV = v; updateFovCircle() end)
     
     UI.Slider(leftCol, "Distance", 50, 1000, AimbotSettings.MaxDistance, 5, function(v) AimbotSettings.MaxDistance = v end)
