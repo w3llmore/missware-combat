@@ -1,5 +1,5 @@
 --[[
-    MissWare Combat — Aimbot (v25 - FINAL FIX)
+    MissWare Combat — Aimbot (v25 - FIXED)
 ]]
 
 local Players = game:GetService("Players")
@@ -15,17 +15,15 @@ local UI = _G.MissWare and _G.MissWare.UI
 if not UI then warn("[MissWare Aimbot] UI API not found") return end
 local new, corner, stroke, gradient = UI.New, UI.Corner, UI.Stroke, UI.Gradient
 local CFG = UI.CFG
-
-local GlobalColorElements = _G.MissWare.GlobalColorElements or {}
-local GlobalThemeElements = _G.MissWare.GlobalThemeElements or {}
-
--- Встроенный tween, чтобы не зависеть от основного скрипта
-local function SafeTween(obj, info, props)
+local tween = UI.Tween or function(obj, info, props)
     if not obj or not obj.Parent then return end
     local t = TweenService:Create(obj, info, props)
     t:Play()
     return t
 end
+
+local GlobalColorElements = _G.MissWare.GlobalColorElements or {}
+local GlobalThemeElements = _G.MissWare.GlobalThemeElements or {}
 
 -- ========== AIMBOT SETTINGS ==========
 local AimbotSettings = {
@@ -48,6 +46,7 @@ local aimbotConnection = nil
 local lastFireTime = 0
 local currentTarget = nil
 local currentTargetPlayer = nil
+local drawingBroken = false
 
 local function isPlayerAlive(plr)
     if not plr then return false end
@@ -142,10 +141,17 @@ local function applyAutoStop()
 end
 
 function createFovCircle()
-    if not Drawing or not Camera then return end
+    if not Drawing or drawingBroken then return end
     if fovCircle then pcall(function() fovCircle:Remove() end); fovCircle = nil end
+    local ok, circle = pcall(function() return Drawing.new("Circle") end)
+    if not ok or not circle then
+        drawingBroken = true
+        Drawing = nil
+        warn("[MissWare Aimbot] Drawing API is broken in this executor, FOV circle disabled")
+        return
+    end
+    fovCircle = circle
     pcall(function()
-        fovCircle = Drawing.new("Circle")
         fovCircle.Visible, fovCircle.Radius, fovCircle.Thickness = false, 100, 2
         fovCircle.Color, fovCircle.Filled, fovCircle.NumSides = CFG.Accent, false, 60
         fovCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
@@ -153,7 +159,7 @@ function createFovCircle()
 end
 
 function updateFovCircle()
-    if not Drawing or not fovCircle or not Camera then return end
+    if not Drawing or drawingBroken or not fovCircle or not Camera then return end
     pcall(function()
         local vs = Camera.ViewportSize
         local cx, cy = vs.X / 2, vs.Y / 2
@@ -199,13 +205,13 @@ local function mainLoop()
     if currentTargetPlayer == Player or not isPlayerAlive(currentTargetPlayer) then currentTarget, currentTargetPlayer = nil, nil return end
     if AimbotSettings.AimMode == "CounterBlox" and isTeammate(currentTargetPlayer) then currentTarget, currentTargetPlayer = nil, nil return end
     if not isVisible(target) then return end
-    
+
     local screenPos = Camera:WorldToViewportPoint(target.Position)
     if not screenPos then return end
     local cx, cy = Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2
     if math.abs(screenPos.X - cx) > 30 or math.abs(screenPos.Y - cy) > 30 then return end
     if tick() - lastFireTime < AimbotSettings.AutoFireDelay then return end
-    
+
     if mouse1press then pcall(mouse1press) end
     task.wait(0.01)
     if mouse1release then pcall(mouse1release) end
@@ -250,7 +256,9 @@ local function createFixedDropdown(parent, text, options, default, order, callba
     }, parent)
     corner(holder, 8)
     local hStroke = stroke(holder, CFG.TextDim, 1, 0.8)
-    
+    hStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    hStroke.LineJoinMode = Enum.LineJoinMode.Round
+
     table.insert(GlobalThemeElements, { obj = holder, prop = "BackgroundColor3", base = "PanelLight" })
     table.insert(GlobalColorElements, { obj = hStroke, prop = "Color", base = "Accent" })
 
@@ -278,17 +286,20 @@ local function createFixedDropdown(parent, text, options, default, order, callba
         TextSize = 12,
         TextXAlignment = Enum.TextXAlignment.Left,
         AutoButtonColor = false,
-        ZIndex = 5
+        ZIndex = 1001, -- выше блокировщика, чтобы кнопка оставалась кликабельной
     }, holder)
     corner(btn, 6)
     local btnStroke = stroke(btn, CFG.TextDim, 1, 0.6)
-    
+    btnStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    btnStroke.LineJoinMode = Enum.LineJoinMode.Round
+
     table.insert(GlobalThemeElements, { obj = btn, prop = "BackgroundColor3", base = "Bg" })
     table.insert(GlobalColorElements, { obj = btn, prop = "TextColor3", base = "Accent" })
     table.insert(GlobalColorElements, { obj = btnStroke, prop = "Color", base = "Accent" })
 
     local state = default
     local isOpen = false
+    local isAnimating = false
 
     local rootGui = _G.MissWare.Gui or parent
     local listFrame = new("Frame", {
@@ -303,9 +314,11 @@ local function createFixedDropdown(parent, text, options, default, order, callba
     }, rootGui)
     corner(listFrame, 6)
     local listStroke = stroke(listFrame, CFG.Accent, 1, 0.8)
+    listStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    listStroke.LineJoinMode = Enum.LineJoinMode.Round
     table.insert(GlobalThemeElements, { obj = listFrame, prop = "BackgroundColor3", base = "Bg" })
     table.insert(GlobalColorElements, { obj = listStroke, prop = "Color", base = "Accent" })
-    
+
     new("UIListLayout", { Padding = UDim.new(0, 2), SortOrder = Enum.SortOrder.LayoutOrder }, listFrame)
     new("UIPadding", { PaddingTop = UDim.new(0, 4), PaddingBottom = UDim.new(0, 4) }, listFrame)
 
@@ -314,7 +327,7 @@ local function createFixedDropdown(parent, text, options, default, order, callba
         BackgroundTransparency = 1,
         Text = "",
         Visible = false,
-        ZIndex = 998,
+        ZIndex = 997, -- ниже кнопок, но выше карточки
     }, rootGui)
 
     for i, opt in ipairs(options) do
@@ -334,73 +347,105 @@ local function createFixedDropdown(parent, text, options, default, order, callba
         }, listFrame)
         corner(ob, 4)
         table.insert(GlobalThemeElements, { obj = ob, prop = "TextColor3", base = "Text" })
-        
-        ob.MouseEnter:Connect(function() SafeTween(ob, CFG.EaseFast, { BackgroundTransparency = 0.7, TextColor3 = CFG.AccentSoft }) end)
-        ob.MouseLeave:Connect(function() SafeTween(ob, CFG.EaseFast, { BackgroundTransparency = 1, TextColor3 = CFG.Text }) end)
+
+        ob.MouseEnter:Connect(function()
+            tween(ob, CFG.EaseFast, {
+                BackgroundTransparency = 0.6,
+                BackgroundColor3 = CFG.Accent,
+                TextColor3 = CFG.AccentSoft,
+            })
+        end)
+        ob.MouseLeave:Connect(function()
+            tween(ob, CFG.EaseFast, {
+                BackgroundTransparency = 1,
+                TextColor3 = CFG.Text,
+            })
+        end)
 
         ob.MouseButton1Click:Connect(function()
             state = opt
             btn.Text = "  " .. tostring(opt) .. "  ▼"
             if callback then callback(state) end
-            isOpen = false
-            blockInputFrame.Visible = false
-            SafeTween(listFrame, CFG.EaseFast, { Size = UDim2.new(0, 0, 0, 0) })
-            task.delay(0.2, function() if not isOpen then listFrame.Visible = false end end)
-            activeDropdown = nil
+            closeDropdown()
         end)
     end
 
-    local function closeDropdown()
+    local function openDropdown()
+        if isAnimating or isOpen then return end
+        isAnimating = true
+        isOpen = true
+        -- позиция: ниже кнопки на 10px
+        listFrame.Position = UDim2.fromOffset(btn.AbsolutePosition.X, btn.AbsolutePosition.Y + btn.AbsoluteSize.Y + 10)
+        listFrame.Size = UDim2.fromOffset(btn.AbsoluteSize.X, 0)
+        listFrame.Visible = true
+        blockInputFrame.Visible = true
+        local targetH = #options * 26 + 8
+        local t = tween(listFrame, TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+            Size = UDim2.fromOffset(btn.AbsoluteSize.X, targetH)
+        })
+        if t then
+            t.Completed:Connect(function()
+                isAnimating = false
+            end)
+        else
+            isAnimating = false
+        end
+    end
+
+    function closeDropdown()
+        if not isOpen or isAnimating then return end
+        isAnimating = true
         isOpen = false
         blockInputFrame.Visible = false
-        SafeTween(listFrame, CFG.EaseFast, { Size = UDim2.new(0, btn.AbsoluteSize.X, 0, 0) })
-        task.delay(0.2, function() if not isOpen then listFrame.Visible = false end end)
-        activeDropdown = nil
+        local t = tween(listFrame, TweenInfo.new(0.12, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+            Size = UDim2.fromOffset(btn.AbsoluteSize.X, 0)
+        })
+        local function done()
+            listFrame.Visible = false
+            isAnimating = false
+            if activeDropdown == dropdownRef then activeDropdown = nil end
+        end
+        if t then t.Completed:Connect(done) else done() end
     end
 
     btn.MouseButton1Click:Connect(function()
-        if activeDropdown == btn then
+        if activeDropdown == dropdownRef then
             closeDropdown()
             return
         end
-        if activeDropdown then
-            activeDropdown:Fire()
-        end
-
-        isOpen = true
-        activeDropdown = { Fire = closeDropdown }
-
-        listFrame.Position = UDim2.fromOffset(btn.AbsolutePosition.X, btn.AbsolutePosition.Y + btn.AbsoluteSize.Y + 8)
-        listFrame.Size = UDim2.new(0, btn.AbsoluteSize.X, 0, 0)
-        listFrame.Visible = true
-        
-        SafeTween(listFrame, CFG.EaseFast, { Size = UDim2.new(0, btn.AbsoluteSize.X, 0, #options * 26 + 8) })
-        blockInputFrame.Visible = true
+        if activeDropdown then activeDropdown:Fire() end
+        openDropdown()
+        activeDropdown = dropdownRef
     end)
 
     blockInputFrame.MouseButton1Click:Connect(function()
         closeDropdown()
     end)
 
-    return { 
-        Set = function(v) state = v; btn.Text = "  " .. tostring(v) .. "  ▼" end, 
+    local dropdownRef = {
+        Fire = closeDropdown,
+        Set = function(v) state = v; btn.Text = "  " .. tostring(v) .. "  ▼" end,
         Get = function() return state end
     }
+    return dropdownRef
 end
 
 -- ========== UI CARD ==========
 function _G.MissWare.CreateAimbotUI(parent)
     local card = new("Frame", {
-        Size = UDim2.new(1, -8, 0, 260), -- Увеличили высоту (было 240)
+        Size = UDim2.new(1, -8, 0, 300), -- было 240, теперь 300
         BackgroundColor3 = CFG.Bg,
-        BackgroundTransparency = 0.2, 
+        BackgroundTransparency = 0.2,
         BorderSizePixel = 0,
         LayoutOrder = 1,
         ZIndex = 10,
+        ClipsDescendants = false, -- чтобы обводка не резалась
     }, parent)
     corner(card, 10)
-    local cardStroke = stroke(card, CFG.Accent, 1, 0.8) -- Сделал обводку чуть заметнее
-    
+    local cardStroke = stroke(card, CFG.Accent, 1, 0.5)
+    cardStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    cardStroke.LineJoinMode = Enum.LineJoinMode.Round
+
     table.insert(GlobalThemeElements, { obj = card, prop = "BackgroundColor3", base = "Bg" })
     table.insert(GlobalColorElements, { obj = cardStroke, prop = "Color", base = "Accent" })
 
@@ -437,29 +482,12 @@ function _G.MissWare.CreateAimbotUI(parent)
     }, header)
     corner(toggle, 4)
     local toggleStroke = stroke(toggle, CFG.TextDim, 1, 0.5)
+    toggleStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    toggleStroke.LineJoinMode = Enum.LineJoinMode.Round
     table.insert(GlobalThemeElements, { obj = toggle, prop = "BackgroundColor3", base = "PanelLight" })
-    table.insert(GlobalThemeElements, { obj = toggle, prop = "TextColor3", base = "Text" })
-
-    local bindBtn = new("TextButton", {
-        Size = UDim2.fromOffset(50, 22),
-        Position = UDim2.new(1, -50, 0, 7),
-        BackgroundColor3 = CFG.PanelLight,
-        BackgroundTransparency = 0.3,
-        Text = formatBind(AimbotSettings.BindKey),
-        TextColor3 = CFG.TextDim,
-        Font = UI.FontMed,
-        TextSize = 10,
-        AutoButtonColor = false,
-        ZIndex = 12,
-    }, header)
-    corner(bindBtn, 4)
-    local bindStroke = stroke(bindBtn, CFG.TextDim, 1, 0.6)
-    table.insert(GlobalThemeElements, { obj = bindBtn, prop = "BackgroundColor3", base = "PanelLight" })
-    table.insert(GlobalThemeElements, { obj = bindBtn, prop = "TextColor3", base = "TextDim" })
-    table.insert(GlobalColorElements, { obj = bindStroke, prop = "Color", base = "Accent" })
+    -- ВАЖНО: НЕ добавляем toggle.TextColor3 в GlobalThemeElements, чтобы не сбрасывался
 
     local function updateToggleVisual()
-        -- Обновляем кнопку Вкл/Выкл
         toggle.Text = AimbotSettings.Enabled and "ON" or "OFF"
         toggle.TextColor3 = AimbotSettings.Enabled and CFG.Accent or CFG.Text
         toggle.BackgroundTransparency = AimbotSettings.Enabled and 0.1 or 0.2
@@ -476,21 +504,37 @@ function _G.MissWare.CreateAimbotUI(parent)
 
     toggle.MouseButton1Click:Connect(function() setEnabled(not AimbotSettings.Enabled) end)
 
+    local bindBtn = new("TextButton", {
+        Size = UDim2.fromOffset(50, 22),
+        Position = UDim2.new(1, -50, 0, 7),
+        BackgroundColor3 = CFG.PanelLight,
+        BackgroundTransparency = 0.3,
+        Text = formatBind(AimbotSettings.BindKey),
+        TextColor3 = CFG.TextDim,
+        Font = UI.FontMed,
+        TextSize = 10,
+        AutoButtonColor = false,
+        ZIndex = 12,
+    }, header)
+    corner(bindBtn, 4)
+    local bindStroke = stroke(bindBtn, CFG.TextDim, 1, 0.6)
+    bindStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    bindStroke.LineJoinMode = Enum.LineJoinMode.Round
+    table.insert(GlobalThemeElements, { obj = bindBtn, prop = "BackgroundColor3", base = "PanelLight" })
+    -- ВАЖНО: НЕ добавляем bindBtn.TextColor3 в GlobalThemeElements
+
     local bindingAimbot = false
     local function applyBindVisual()
         bindBtn.Text = formatBind(AimbotSettings.BindKey)
-        -- Обновляем кнопку Бинда (сразу при нажатии)
         bindBtn.TextColor3 = AimbotSettings.BindKey and CFG.Accent or CFG.TextDim
-        bindStroke.Color = AimbotSettings.BindKey and CFG.Accent or CFG.TextDim
-        bindStroke.Transparency = AimbotSettings.BindKey and 0 or 0.6
     end
+    applyBindVisual()
 
     bindBtn.MouseButton1Click:Connect(function()
         if bindingAimbot then return end
         bindingAimbot = true
         bindBtn.Text = "..."
         bindBtn.TextColor3 = CFG.AccentSoft
-        bindStroke.Color = CFG.AccentSoft
     end)
 
     UserInputService.InputBegan:Connect(function(input, gp)
@@ -512,11 +556,30 @@ function _G.MissWare.CreateAimbotUI(parent)
         end
     end)
 
+    -- Обработка нажатия бинда (включение/выключение)
+    UserInputService.InputBegan:Connect(function(input, gp)
+        if gp or not AimbotSettings.BindKey then return end
+        local key = AimbotSettings.BindKey
+        local pressed = false
+        if typeof(key) == "EnumItem" then
+            if key.EnumType == Enum.KeyCode and input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == key then
+                pressed = true
+            elseif key == Enum.UserInputType.MouseButton1 and input.UserInputType == Enum.UserInputType.MouseButton1 then
+                pressed = true
+            elseif key == Enum.UserInputType.MouseButton2 and input.UserInputType == Enum.UserInputType.MouseButton2 then
+                pressed = true
+            end
+        end
+        if pressed then
+            setEnabled(not AimbotSettings.Enabled)
+        end
+    end)
+
     local content = new("Frame", {
         Size = UDim2.new(1, -16, 1, -44),
         Position = UDim2.fromOffset(8, 40),
         BackgroundTransparency = 1,
-        ClipsDescendants = false,
+        ClipsDescendants = false, -- критично для обводки
         ZIndex = 11,
     }, card)
 
@@ -529,10 +592,10 @@ function _G.MissWare.CreateAimbotUI(parent)
     createFixedDropdown(leftCol, "Aim Part", {"Head", "Body", "Torso"}, AimbotSettings.AimPart, 2, function(v) AimbotSettings.AimPart = v end)
 
     UI.Slider(leftCol, "Smooth", 1, 10, math.floor(AimbotSettings.Smoothness * 10), 3, function(v) AimbotSettings.Smoothness = v / 10 end)
-    
-    -- ФОВ ограничен до 70
-    UI.Slider(leftCol, "FOV", 1, 70, AimbotSettings.FOV, 4, function(v) AimbotSettings.FOV = v; updateFovCircle() end)
-    
+    UI.Slider(leftCol, "FOV", 1, 70, math.clamp(AimbotSettings.FOV, 1, 70), 4, function(v)
+        AimbotSettings.FOV = math.clamp(v, 1, 70)
+        updateFovCircle()
+    end)
     UI.Slider(leftCol, "Distance", 50, 1000, AimbotSettings.MaxDistance, 5, function(v) AimbotSettings.MaxDistance = v end)
 
     UI.Slider(rightCol, "Fire Delay", 1, 50, math.floor(AimbotSettings.AutoFireDelay * 100), 1, function(v) AimbotSettings.AutoFireDelay = v / 100 end)
@@ -547,4 +610,4 @@ _G.MissWare.AimbotSettings = AimbotSettings
 _G.MissWare.startAimbot = startAimbot
 _G.MissWare.stopAimbot = stopAimbot
 _G.MissWare.updateFovCircle = updateFovCircle
-print("[MissWare] Aimbot loaded")
+print("[MissWare] Aimbot loaded (v25)")
