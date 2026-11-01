@@ -1,5 +1,5 @@
 --[[
-    MissWare Combat — Aimbot (v19 - FINAL)
+    MissWare Combat — Aimbot (v20 - PERFECT DROPDOWN)
 ]]
 
 local Players = game:GetService("Players")
@@ -236,6 +236,7 @@ local function createFixedDropdown(parent, text, options, default, order, callba
         BorderSizePixel = 0,
         LayoutOrder = order or 1,
         ZIndex = 3,
+        ClipsDescendants = false, -- ВАЖНО
     }, parent)
     corner(holder, 8)
     local hStroke = stroke(holder, CFG.TextDim, 1, 0.8)
@@ -279,7 +280,6 @@ local function createFixedDropdown(parent, text, options, default, order, callba
     local state = default
     local isOpen = false
 
-    -- Создаем список ВНУТРИ holder, чтобы он двигался вместе с карточкой
     local listFrame = new("ScrollingFrame", {
         Size = UDim2.new(1, 0, 0, 0),
         Position = UDim2.new(0, 0, 1, 5),
@@ -356,7 +356,7 @@ local function createAimbotCard(parent)
         BorderSizePixel = 0,
         LayoutOrder = 1,
         ZIndex = 10,
-        ClipsDescendants = false, -- ОТКЛЮЧАЕМ ОБРЕЗКУ, ЧТОБЫ СПИСОК ВЫЛЕЗАЛ
+        ClipsDescendants = false, -- ОТКЛЮЧАЕМ ОБРЕЗКУ
     }, parent)
     corner(card, 10)
     local cardStroke = stroke(card, CFG.Accent, 1, 0.5)
