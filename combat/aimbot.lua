@@ -1,5 +1,5 @@
 --[[
-    MissWare Combat — Aimbot (v27 - NO CRASH)
+    MissWare Combat — Aimbot (v28 - ZERO TWEEN CRASH)
 ]]
 
 local Players = game:GetService("Players")
@@ -326,8 +326,15 @@ local function createFixedDropdown(parent, text, options, default, order, callba
         corner(ob, 4)
         table.insert(GlobalThemeElements, { obj = ob, prop = "TextColor3", base = "Text" })
         
-        ob.MouseEnter:Connect(function() tween(ob, CFG.EaseFast, { BackgroundTransparency = 0.7, TextColor3 = CFG.AccentSoft }) end)
-        ob.MouseLeave:Connect(function() tween(ob, CFG.EaseFast, { BackgroundTransparency = 1, TextColor3 = CFG.Text }) end)
+        -- Убрали tween, меняем цвет мгновенно (без крашей)
+        ob.MouseEnter:Connect(function()
+            ob.BackgroundTransparency = 0.8
+            ob.TextColor3 = CFG.AccentSoft
+        end)
+        ob.MouseLeave:Connect(function()
+            ob.BackgroundTransparency = 1
+            ob.TextColor3 = CFG.Text
+        end)
 
         ob.MouseButton1Click:Connect(function()
             state = opt
@@ -335,8 +342,7 @@ local function createFixedDropdown(parent, text, options, default, order, callba
             if callback then callback(state) end
             isOpen = false
             blockInputFrame.Visible = false
-            tween(listFrame, CFG.EaseFast, { BackgroundTransparency = 1 })
-            task.delay(0.2, function() if not isOpen then listFrame.Visible = false end end)
+            listFrame.Visible = false
             activeDropdown = nil
         end)
     end
@@ -345,8 +351,7 @@ local function createFixedDropdown(parent, text, options, default, order, callba
         if not isOpen then return end
         isOpen = false
         blockInputFrame.Visible = false
-        tween(listFrame, CFG.EaseFast, { BackgroundTransparency = 1 })
-        task.delay(0.2, function() if not isOpen then listFrame.Visible = false end end)
+        listFrame.Visible = false
         activeDropdown = nil
     end
 
@@ -356,7 +361,6 @@ local function createFixedDropdown(parent, text, options, default, order, callba
             return
         end
         
-        -- ФИКС КРАША: проверяем, что activeDropdown существует и имеет метод Fire
         if activeDropdown and type(activeDropdown) == "table" and activeDropdown.Fire then
             activeDropdown.Fire()
         end
@@ -367,8 +371,7 @@ local function createFixedDropdown(parent, text, options, default, order, callba
         listFrame.Position = UDim2.fromOffset(btn.AbsolutePosition.X, btn.AbsolutePosition.Y + btn.AbsoluteSize.Y + 8)
         listFrame.Size = UDim2.fromOffset(btn.AbsoluteSize.X, #options * 26 + 8)
         listFrame.Visible = true
-        
-        tween(listFrame, CFG.EaseFast, { BackgroundTransparency = 0 })
+        listFrame.BackgroundTransparency = 0
         blockInputFrame.Visible = true
     end)
 
@@ -519,9 +522,7 @@ function _G.MissWare.CreateAimbotUI(parent)
     createFixedDropdown(leftCol, "Aim Part", {"Head", "Body", "Torso"}, AimbotSettings.AimPart, 2, function(v) AimbotSettings.AimPart = v end)
 
     UI.Slider(leftCol, "Smooth", 1, 10, math.floor(AimbotSettings.Smoothness * 10), 3, function(v) AimbotSettings.Smoothness = v / 10 end)
-    
     UI.Slider(leftCol, "FOV", 1, 70, AimbotSettings.FOV, 4, function(v) AimbotSettings.FOV = v; updateFovCircle() end)
-    
     UI.Slider(leftCol, "Distance", 50, 1000, AimbotSettings.MaxDistance, 5, function(v) AimbotSettings.MaxDistance = v end)
 
     UI.Slider(rightCol, "Fire Delay", 1, 50, math.floor(AimbotSettings.AutoFireDelay * 100), 1, function(v) AimbotSettings.AutoFireDelay = v / 100 end)
