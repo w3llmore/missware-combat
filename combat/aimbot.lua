@@ -1,5 +1,5 @@
 --[[
-    MissWare Combat — Aimbot (v17 - NO ERRORS)
+    MissWare Combat — Aimbot (v18 - POSITION FIX)
 ]]
 
 local Players = game:GetService("Players")
@@ -15,7 +15,7 @@ if not UI then warn("[MissWare Aimbot] UI API not found") return end
 local new, corner, stroke, gradient = UI.New, UI.Corner, UI.Stroke, UI.Gradient
 local CFG = UI.CFG
 
--- ЖЕЛЕЗОБЕТОННАЯ ЗАЩИТА ОТ NIL
+-- Защита от краша
 local SetConfig = UI.SetConfig or (_G.MissWare and _G.MissWare.SetConfig) or function() end
 local ConfigElements = UI.ConfigElements or (_G.MissWare and _G.MissWare.ConfigElements) or {}
 
@@ -231,7 +231,7 @@ local function formatBind(k)
     return tostring(k)
 end
 
--- ========== CUSTOM DROPDOWN ==========
+-- ========== CUSTOM DROPDOWN (ПОЗИЦИОНИРОВАНИЕ ИСПРАВЛЕНО) ==========
 local function createFixedDropdown(parent, text, options, default, order, callback, configKey)
     local holder = new("Frame", {
         Size = UDim2.new(1, 0, 0, 42),
@@ -285,6 +285,8 @@ local function createFixedDropdown(parent, text, options, default, order, callba
 
     local isOpen = false
     local rootGui = _G.MissWare.Gui or parent
+
+    -- Создаем фрейм списка (скрытый)
     local listFrame = new("ScrollingFrame", {
         Size = UDim2.new(0, btn.AbsoluteSize.X, 0, 0),
         Position = UDim2.new(0, 0, 0, 0),
@@ -348,7 +350,8 @@ local function createFixedDropdown(parent, text, options, default, order, callba
     btn.MouseButton1Click:Connect(function()
         isOpen = not isOpen
         if isOpen then
-            listFrame.Position = UDim2.new(0, btn.AbsolutePosition.X, 0, btn.AbsolutePosition.Y + btn.AbsoluteSize.Y + 5)
+            -- ИСПОЛЬЗУЕМ UDim2.fromOffset ДЛЯ ТОЧНОГО ПОЗИЦИОНИРОВАНИЯ
+            listFrame.Position = UDim2.fromOffset(btn.AbsolutePosition.X, btn.AbsolutePosition.Y + btn.AbsoluteSize.Y + 5)
             listFrame.Size = UDim2.new(0, btn.AbsoluteSize.X, 0, 0)
             
             blockInputFrame.Visible = true
