@@ -588,20 +588,29 @@ function _G.MissWare.CreateAimbotUI(parent)
     _G.MissWare.UpdateAimbotBind   = applyBindVisual
 
     -- Blur-выделение карточки
-    _G.MissWare.SetAimbotCardBlur = function(blurred)
-        task.defer(function()
-            if not card.Parent then return end
-            if blurred then
-                card.BackgroundTransparency = 0.1
-                cardStroke.Transparency = 0
-                cardStroke.Thickness = 2
-            else
-                card.BackgroundTransparency = 0.05
-                cardStroke.Transparency = 0.3
-                cardStroke.Thickness = 1.5
-            end
-        end)
+_G.MissWare.SetAimbotCardBlur = function(blurred)
+    if not card or not card.Parent then return end
+    if blurred then
+        card.BackgroundTransparency = 0.1
+        cardStroke.Transparency = 0
+        cardStroke.Thickness = 2
+    else
+        card.BackgroundTransparency = 0.05
+        cardStroke.Transparency = 0.3
+        cardStroke.Thickness = 1.5
     end
+end
+
+-- Сразу применить текущее состояние меню
+task.defer(function()
+    local gui = _G.MissWare.Gui
+    if gui then
+        local mainFrame = gui:FindFirstChild("Main")
+        if mainFrame and not mainFrame.Visible then
+            _G.MissWare.SetAimbotCardBlur(true)
+        end
+    end
+end)
 
     -- Восстановление из ConfigElements после регистрации
     task.defer(function()
