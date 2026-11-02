@@ -591,9 +591,9 @@ function _G.MissWare.CreateAimbotUI(parent)
 _G.MissWare.SetAimbotCardBlur = function(blurred)
     if not card or not card.Parent then return end
     if blurred then
-        card.BackgroundTransparency = 0.55   -- было 0.1
+        card.BackgroundTransparency = 0.55
         cardStroke.Transparency = 0
-        cardStroke.Thickness = 2.5           -- было 2
+        cardStroke.Thickness = 2.5
     else
         card.BackgroundTransparency = 0.05
         cardStroke.Transparency = 0.3
