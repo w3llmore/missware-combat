@@ -1,5 +1,5 @@
 --[[
-    MissWare Combat — Aimbot (v26 - FINAL FIX)
+    MissWare Combat — Aimbot (v27 - FIXED)
 ]]
 
 local Players = game:GetService("Players")
@@ -69,7 +69,7 @@ local function isVisible(targetPart)
     local direction = targetPart.Position - origin
     local params = RaycastParams.new()
     params.FilterType = Enum.RaycastFilterType.Exclude
-    params.FilterDescendantsInstances = {Player.Character, targetPart}
+    params.FilterDescendantsInstances = {Player.Character, targetPart, targetPart.Parent}
     local result = Workspace:Raycast(origin, direction, params)
     return not result or result.Instance == targetPart or result.Instance:IsDescendantOf(targetPart.Parent)
 end
@@ -141,7 +141,8 @@ local function applyAutoStop()
 end
 
 function createFovCircle()
-    if not Drawing or drawingBroken then return end
+    if drawingBroken then return end
+    if not Drawing then drawingBroken = true; return end
     if fovCircle then pcall(function() fovCircle:Remove() end); fovCircle = nil end
     local ok, circle = pcall(function() return Drawing.new("Circle") end)
     if not ok or not circle then
@@ -211,12 +212,12 @@ local function mainLoop()
     if not screenPos then return end
     local cx, cy = Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2
     if math.abs(screenPos.X - cx) > 30 or math.abs(screenPos.Y - cy) > 30 then return end
-    if tick() - lastFireTime < AimbotSettings.AutoFireDelay then return end
+    if os.clock() - lastFireTime < AimbotSettings.AutoFireDelay then return end
 
     if mouse1press then pcall(mouse1press) end
     task.wait(0.01)
     if mouse1release then pcall(mouse1release) end
-    lastFireTime = tick()
+    lastFireTime = os.clock()
 end
 
 local function startAimbot()
@@ -341,12 +342,12 @@ local function createFixedDropdown(parent, text, options, default, order, callba
         local btnAbs = btn.AbsolutePosition
         local guiAbs = rootGui.AbsolutePosition or Vector2.new(0, 0)
         local relX = btnAbs.X - guiAbs.X
-        local relY = btnAbs.Y - guiAbs.Y + btn.AbsoluteSize.Y + 6
+        local relY = btnAbs.Y - guiAbs.Y + btn.AbsoluteSize.Y + 2
 
         local itemH = 24
         local gap = 2
         local pad = 8
-        local targetH = #options * itemH + (#options - 1) * gap + pad
+        local targetH = #options * itemH + math.max(0, #options - 1) * gap + pad
 
         listFrame.Position = UDim2.fromOffset(relX, relY)
         listFrame.Size = UDim2.fromOffset(btn.AbsoluteSize.X, 0)
@@ -446,7 +447,7 @@ function _G.MissWare.CreateAimbotUI(parent)
         BorderSizePixel = 0,
         LayoutOrder = 1,
         ZIndex = 10,
-        ClipsDescendants = false,
+        ClipsDescendants = true,
     }, parent)
     corner(card, 10)
     local cardStroke = stroke(card, CFG.Accent, 1.5, 0.3)
@@ -491,15 +492,16 @@ function _G.MissWare.CreateAimbotUI(parent)
     local toggleStroke = stroke(toggle, CFG.TextDim, 1, 0.5)
     toggleStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
     toggleStroke.LineJoinMode = Enum.LineJoinMode.Round
-    table.insert(GlobalThemeElements, { obj = toggle, prop = "BackgroundColor3", base = "PanelLight" })
 
     local function updateToggleVisual()
         local on = AimbotSettings.Enabled
         toggle.Text = on and "ON" or "OFF"
         toggle.TextColor3 = on and CFG.Accent or CFG.Text
         toggle.BackgroundTransparency = on and 0.1 or 0.2
+        toggle.BackgroundColor3 = CFG.PanelLight
         toggleStroke.Color = on and CFG.Accent or CFG.TextDim
         toggleStroke.Transparency = on and 0 or 0.5
+        toggleStroke.Thickness = 1
     end
     updateToggleVisual()
 
@@ -527,16 +529,17 @@ function _G.MissWare.CreateAimbotUI(parent)
     local bindStroke = stroke(bindBtn, CFG.TextDim, 1, 0.6)
     bindStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
     bindStroke.LineJoinMode = Enum.LineJoinMode.Round
-    table.insert(GlobalThemeElements, { obj = bindBtn, prop = "BackgroundColor3", base = "PanelLight" })
 
     local bindingAimbot = false
     local function applyBindVisual()
         local hasBind = AimbotSettings.BindKey ~= nil
         bindBtn.Text = formatBind(AimbotSettings.BindKey)
         bindBtn.TextColor3 = hasBind and CFG.Accent or CFG.TextDim
+        bindBtn.BackgroundColor3 = CFG.PanelLight
         if bindStroke then
             bindStroke.Color = hasBind and CFG.Accent or CFG.TextDim
             bindStroke.Transparency = hasBind and 0.2 or 0.6
+            bindStroke.Thickness = 1
         end
     end
     applyBindVisual()
@@ -614,10 +617,11 @@ function _G.MissWare.CreateAimbotUI(parent)
     UI.Checkbox(rightCol, "Auto Stop", AimbotSettings.AutoStop, 4, function(v) AimbotSettings.AutoStop = v end)
 
     _G.MissWare.UpdateAimbotToggle = updateToggleVisual
+    _G.MissWare.UpdateAimbotBind = applyBindVisual
 end
 
 _G.MissWare.AimbotSettings = AimbotSettings
 _G.MissWare.startAimbot = startAimbot
 _G.MissWare.stopAimbot = stopAimbot
 _G.MissWare.updateFovCircle = updateFovCircle
-print("[MissWare] Aimbot loaded (v26)")
+print("[MissWare] Aimbot loaded (v27)")
