@@ -416,7 +416,7 @@ function _G.MissWare.CreateAimbotUI(parent)
     table.insert(GlobalColorElements, { obj = cardStroke, prop = "Color", base = "Accent" })
 
     local header = new("Frame", {
-        Size = UDim2.new(1, -16, 0, 36), Position = UDim2.fromOffset(8, 4),
+        Size = UDim2.new(1, -16, 0, 36), Position = UDim2.fromOffset(20, 0),
         BackgroundTransparency = 1, ZIndex = 11,
     }, card)
 
@@ -591,9 +591,9 @@ function _G.MissWare.CreateAimbotUI(parent)
 _G.MissWare.SetAimbotCardBlur = function(blurred)
     if not card or not card.Parent then return end
     if blurred then
-        card.BackgroundTransparency = 0.1
+        card.BackgroundTransparency = 0.55   -- было 0.1
         cardStroke.Transparency = 0
-        cardStroke.Thickness = 2
+        cardStroke.Thickness = 2.5           -- было 2
     else
         card.BackgroundTransparency = 0.05
         cardStroke.Transparency = 0.3
