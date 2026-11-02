@@ -1,5 +1,5 @@
 --[[
-    MissWare Combat — Aimbot (v25 - FIXED)
+    MissWare Combat — Aimbot (v26 - FINAL FIX)
 ]]
 
 local Players = game:GetService("Players")
@@ -159,9 +159,7 @@ function createFovCircle()
 end
 
 function updateFovCircle()
-    -- >>> КЛАМП FOV (защита от старых конфигов > 70)
     AimbotSettings.FOV = math.clamp(AimbotSettings.FOV, 1, 70)
-
     if not Drawing or drawingBroken or not fovCircle or not Camera then return end
     pcall(function()
         local vs = Camera.ViewportSize
@@ -333,25 +331,33 @@ local function createFixedDropdown(parent, text, options, default, order, callba
         ZIndex = 997,
     }, rootGui)
 
-    local dropdownRef -- forward declaration
+    local dropdownRef
 
     local function openDropdown()
         if isAnimating or isOpen then return end
         isAnimating = true
         isOpen = true
-        listFrame.Position = UDim2.fromOffset(btn.AbsolutePosition.X, btn.AbsolutePosition.Y + btn.AbsoluteSize.Y + 10)
+
+        local btnAbs = btn.AbsolutePosition
+        local guiAbs = rootGui.AbsolutePosition or Vector2.new(0, 0)
+        local relX = btnAbs.X - guiAbs.X
+        local relY = btnAbs.Y - guiAbs.Y + btn.AbsoluteSize.Y + 6
+
+        local itemH = 24
+        local gap = 2
+        local pad = 8
+        local targetH = #options * itemH + (#options - 1) * gap + pad
+
+        listFrame.Position = UDim2.fromOffset(relX, relY)
         listFrame.Size = UDim2.fromOffset(btn.AbsoluteSize.X, 0)
         listFrame.Visible = true
         blockInputFrame.Visible = true
-        local targetH = #options * 26 + 8
+
         local t = tween(listFrame, TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
             Size = UDim2.fromOffset(btn.AbsoluteSize.X, targetH)
         })
-        if t then
-            t.Completed:Connect(function() isAnimating = false end)
-        else
-            isAnimating = false
-        end
+        if t then t.Completed:Connect(function() isAnimating = false end)
+        else isAnimating = false end
     end
 
     local function closeDropdown()
@@ -372,8 +378,7 @@ local function createFixedDropdown(parent, text, options, default, order, callba
 
     for i, opt in ipairs(options) do
         local ob = new("TextButton", {
-            Size = UDim2.new(1, -8, 0, 24),
-            Position = UDim2.fromOffset(4, 0),
+            Size = UDim2.new(1, 0, 0, 24),
             BackgroundColor3 = CFG.Accent,
             BackgroundTransparency = 1,
             Text = "  " .. tostring(opt),
@@ -437,14 +442,14 @@ function _G.MissWare.CreateAimbotUI(parent)
     local card = new("Frame", {
         Size = UDim2.new(1, -8, 0, 300),
         BackgroundColor3 = CFG.Bg,
-        BackgroundTransparency = 0.2,
+        BackgroundTransparency = 0.05,
         BorderSizePixel = 0,
         LayoutOrder = 1,
         ZIndex = 10,
         ClipsDescendants = false,
     }, parent)
     corner(card, 10)
-    local cardStroke = stroke(card, CFG.Accent, 1, 0.5)
+    local cardStroke = stroke(card, CFG.Accent, 1.5, 0.3)
     cardStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
     cardStroke.LineJoinMode = Enum.LineJoinMode.Round
 
@@ -487,14 +492,14 @@ function _G.MissWare.CreateAimbotUI(parent)
     toggleStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
     toggleStroke.LineJoinMode = Enum.LineJoinMode.Round
     table.insert(GlobalThemeElements, { obj = toggle, prop = "BackgroundColor3", base = "PanelLight" })
-    -- toggle.TextColor3 НЕ добавляем в GlobalThemeElements
 
     local function updateToggleVisual()
-        toggle.Text = AimbotSettings.Enabled and "ON" or "OFF"
-        toggle.TextColor3 = AimbotSettings.Enabled and CFG.Accent or CFG.Text
-        toggle.BackgroundTransparency = AimbotSettings.Enabled and 0.1 or 0.2
-        toggleStroke.Color = AimbotSettings.Enabled and CFG.Accent or CFG.TextDim
-        toggleStroke.Transparency = AimbotSettings.Enabled and 0 or 0.5
+        local on = AimbotSettings.Enabled
+        toggle.Text = on and "ON" or "OFF"
+        toggle.TextColor3 = on and CFG.Accent or CFG.Text
+        toggle.BackgroundTransparency = on and 0.1 or 0.2
+        toggleStroke.Color = on and CFG.Accent or CFG.TextDim
+        toggleStroke.Transparency = on and 0 or 0.5
     end
     updateToggleVisual()
 
@@ -523,12 +528,16 @@ function _G.MissWare.CreateAimbotUI(parent)
     bindStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
     bindStroke.LineJoinMode = Enum.LineJoinMode.Round
     table.insert(GlobalThemeElements, { obj = bindBtn, prop = "BackgroundColor3", base = "PanelLight" })
-    -- bindBtn.TextColor3 НЕ добавляем в GlobalThemeElements
 
     local bindingAimbot = false
     local function applyBindVisual()
+        local hasBind = AimbotSettings.BindKey ~= nil
         bindBtn.Text = formatBind(AimbotSettings.BindKey)
-        bindBtn.TextColor3 = AimbotSettings.BindKey and CFG.Accent or CFG.TextDim
+        bindBtn.TextColor3 = hasBind and CFG.Accent or CFG.TextDim
+        if bindStroke then
+            bindStroke.Color = hasBind and CFG.Accent or CFG.TextDim
+            bindStroke.Transparency = hasBind and 0.2 or 0.6
+        end
     end
     applyBindVisual()
 
@@ -558,7 +567,6 @@ function _G.MissWare.CreateAimbotUI(parent)
         end
     end)
 
-    -- Обработка нажатия бинда (включение/выключение)
     UserInputService.InputBegan:Connect(function(input, gp)
         if gp or not AimbotSettings.BindKey then return end
         local key = AimbotSettings.BindKey
@@ -612,4 +620,4 @@ _G.MissWare.AimbotSettings = AimbotSettings
 _G.MissWare.startAimbot = startAimbot
 _G.MissWare.stopAimbot = stopAimbot
 _G.MissWare.updateFovCircle = updateFovCircle
-print("[MissWare] Aimbot loaded (v25)")
+print("[MissWare] Aimbot loaded (v26)")
