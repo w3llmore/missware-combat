@@ -1,5 +1,5 @@
 --[[
-    MissWare Combat — Aimbot (v28 - FINAL)
+    MissWare Combat — Aimbot (v29 - FULL)
 ]]
 
 local Players = game:GetService("Players")
@@ -43,7 +43,7 @@ local AimbotSettings = {
     BindKey       = nil,
 }
 
--- ========== AIMBOT LOGIC (без изменений, кроме мелочей) ==========
+-- ========== AIMBOT LOGIC ==========
 local fovCircle, aimbotConnection, lastFireTime = nil, nil, 0
 local currentTarget, currentTargetPlayer, drawingBroken = nil, nil, false
 
@@ -261,7 +261,7 @@ local function configToBindKey(cfg)
     return nil
 end
 
--- ========== DROPDOWN (без изменений, но с сохранением в конфиг) ==========
+-- ========== DROPDOWN ==========
 local activeDropdown = nil
 
 local function createFixedDropdown(parent, text, options, default, order, callback, configKey)
@@ -427,7 +427,7 @@ function _G.MissWare.CreateAimbotUI(parent)
     }, header)
     table.insert(GlobalThemeElements, { obj = titleLabel, prop = "TextColor3", base = "Text" })
 
-    -- ===== TOGGLE =====
+    -- TOGGLE
     local toggle = new("TextButton", {
         Name = "MW_AimbotToggle",
         Size = UDim2.fromOffset(44, 22), Position = UDim2.new(1, -100, 0, 7),
@@ -440,7 +440,7 @@ function _G.MissWare.CreateAimbotUI(parent)
     toggleStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
     toggleStroke.LineJoinMode = Enum.LineJoinMode.Round
 
-    -- ===== BIND BUTTON =====
+    -- BIND BUTTON
     local bindBtn = new("TextButton", {
         Name = "MW_AimbotBind",
         Size = UDim2.fromOffset(50, 22), Position = UDim2.new(1, -50, 0, 7),
@@ -453,11 +453,10 @@ function _G.MissWare.CreateAimbotUI(parent)
     bindStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
     bindStroke.LineJoinMode = Enum.LineJoinMode.Round
 
-    -- ===== APPLY VISUALS (с task.defer, чтобы не сбивалось UI-циклом) =====
-    local function updateToggleVisual()
+    -- Force colors (без defer — применяем сразу + дублируем в defer для страховки)
+    local function forceColors()
         local on = AimbotSettings.Enabled
-        task.defer(function()
-            if not toggle.Parent then return end
+        if toggle.Parent then
             toggle.Text = on and "ON" or "OFF"
             toggle.TextColor3 = on and CFG.Accent or CFG.Text
             toggle.BackgroundColor3 = CFG.PanelLight
@@ -465,20 +464,25 @@ function _G.MissWare.CreateAimbotUI(parent)
             toggleStroke.Color = on and CFG.Accent or CFG.TextDim
             toggleStroke.Transparency = on and 0 or 0.5
             toggleStroke.Thickness = 1
-        end)
-    end
-
-    local function applyBindVisual()
-        local hasBind = AimbotSettings.BindKey ~= nil
-        task.defer(function()
-            if not bindBtn.Parent then return end
+        end
+        if bindBtn.Parent then
+            local hasBind = AimbotSettings.BindKey ~= nil
             bindBtn.Text = formatBind(AimbotSettings.BindKey)
             bindBtn.TextColor3 = hasBind and CFG.Accent or CFG.TextDim
             bindBtn.BackgroundColor3 = CFG.PanelLight
             bindStroke.Color = hasBind and CFG.Accent or CFG.TextDim
             bindStroke.Transparency = hasBind and 0.2 or 0.6
             bindStroke.Thickness = 1
-        end)
+        end
+    end
+
+    local function updateToggleVisual()
+        forceColors()
+        task.defer(forceColors)
+    end
+    local function applyBindVisual()
+        forceColors()
+        task.defer(forceColors)
     end
 
     updateToggleVisual()
@@ -498,7 +502,7 @@ function _G.MissWare.CreateAimbotUI(parent)
         if bindingAimbot then return end
         bindingAimbot = true
         bindBtn.Text = "..."
-        task.defer(function() bindBtn.TextColor3 = CFG.AccentSoft end)
+        bindBtn.TextColor3 = CFG.AccentSoft
     end)
 
     UserInputService.InputBegan:Connect(function(input, gp)
@@ -566,45 +570,63 @@ function _G.MissWare.CreateAimbotUI(parent)
     UI.Checkbox(rightCol, "Auto Stop", AimbotSettings.AutoStop, 4,
         function(v) AimbotSettings.AutoStop = v end, "Aimbot_AutoStop")
 
-    -- Экспорт для UI (вызывается из updateAccent/setTheme, если добавишь)
+    -- Регистрация toggle и bind в ConfigElements (для LoadConfig)
+    ConfigElements["Aimbot_Enabled"] = {
+        Set = function(v) setEnabled(v) end,
+        Get = function() return AimbotSettings.Enabled end,
+    }
+    ConfigElements["Aimbot_Bind"] = {
+        Set = function(v)
+            local k = configToBindKey(v)
+            if k then AimbotSettings.BindKey = k; applyBindVisual() end
+        end,
+        Get = function() return bindKeyToConfig(AimbotSettings.BindKey) end,
+    }
+
+    -- Экспорт для UI
     _G.MissWare.UpdateAimbotToggle = updateToggleVisual
     _G.MissWare.UpdateAimbotBind   = applyBindVisual
 
-    -- Загрузка сохранённых значений из ConfigElements (после регистрации всех элементов)
-    task.defer(function()
-        local function applyIf(key, setter)
-            if ConfigData and ConfigData[key] ~= nil and setter then
-                pcall(setter, ConfigData[key])
+    -- Blur-выделение карточки
+    _G.MissWare.SetAimbotCardBlur = function(blurred)
+        task.defer(function()
+            if not card.Parent then return end
+            if blurred then
+                card.BackgroundTransparency = 0.1
+                cardStroke.Transparency = 0
+                cardStroke.Thickness = 2
+            else
+                card.BackgroundTransparency = 0.05
+                cardStroke.Transparency = 0.3
+                cardStroke.Thickness = 1.5
             end
-        end
-        -- ConfigData доступен через UI? Нет — UI хранит локально. Используем ConfigElements.
+        end)
+    end
+
+    -- Восстановление из ConfigElements после регистрации
+    task.defer(function()
         local function fromCE(key)
             local ce = ConfigElements[key]
             if ce and ce.Get then return ce:Get() end
             return nil
         end
 
-        -- Aimbot_Enabled
-        local en = fromCE("Aimbot_Enabled")
-        if en ~= nil then setEnabled(en) end
-        -- Aim Mode / Part
         local am = fromCE("Aimbot_AimMode"); if am then AimbotSettings.AimMode = am end
         local ap = fromCE("Aimbot_AimPart"); if ap then AimbotSettings.AimPart = ap end
-        -- Smooth / FOV / Distance / FireDelay
         local sm = fromCE("Aimbot_Smooth"); if sm then AimbotSettings.Smoothness = sm / 10 end
         local fv = fromCE("Aimbot_FOV"); if fv then AimbotSettings.FOV = fv; updateFovCircle() end
         local ds = fromCE("Aimbot_Distance"); if ds then AimbotSettings.MaxDistance = ds end
         local fd = fromCE("Aimbot_FireDelay"); if fd then AimbotSettings.AutoFireDelay = fd / 100 end
-        -- Checkboxes
         local sa = fromCE("Aimbot_Silent"); if sa ~= nil then AimbotSettings.SilentAim = sa; updateFovCircle() end
         local af = fromCE("Aimbot_AutoFire"); if af ~= nil then AimbotSettings.AutoFire = af end
         local as = fromCE("Aimbot_AutoStop"); if as ~= nil then AimbotSettings.AutoStop = as end
-        -- Bind
         local bd = fromCE("Aimbot_Bind")
         if bd then
             local k = configToBindKey(bd)
             if k then AimbotSettings.BindKey = k; applyBindVisual() end
         end
+        local en = fromCE("Aimbot_Enabled")
+        if en ~= nil then setEnabled(en) end
     end)
 end
 
@@ -612,4 +634,4 @@ _G.MissWare.AimbotSettings = AimbotSettings
 _G.MissWare.startAimbot = startAimbot
 _G.MissWare.stopAimbot = stopAimbot
 _G.MissWare.updateFovCircle = updateFovCircle
-print("[MissWare] Aimbot loaded (v28)")
+print("[MissWare] Aimbot loaded (v29)")
